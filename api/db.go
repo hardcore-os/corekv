@@ -7,8 +7,8 @@ type (
 		Get(key []byte) (*Entry, error)
 		Del(key []byte) error
 		NewIterator(opt *IteratorOptions) Iterator
-		Info() *Infos
-		CLose() error
+		Stats() *Info
+		Close() error
 	}
 )
 
@@ -23,4 +23,16 @@ func Open(options *Options) *DB {
 
 func (db *DB) Close() error {
 	return nil
+}
+func (db *DB) Del(key []byte) error {
+	return nil
+}
+func (db *DB) Set(data *Entry) error {
+	return nil
+}
+func (db *DB) Get(key []byte) (*Entry, error) {
+	return &Entry{}, nil
+}
+func (db *DB) Stats() *Info {
+	return &Info{}
 }
