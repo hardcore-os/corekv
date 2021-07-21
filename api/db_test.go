@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func TestApi(t *testing.T) {
+func TestAPI(t *testing.T) {
 	opt := NewDefaultOptions()
 	db := Open(opt)
 	defer func() { _ = db.Close() }()
