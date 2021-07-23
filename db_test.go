@@ -1,6 +1,7 @@
-package api
+package coreKV
 
 import (
+	"github.com/logikoisto/coreKV/interator"
 	"testing"
 	"time"
 )
@@ -21,7 +22,7 @@ func TestAPI(t *testing.T) {
 		t.Logf("db.Get key=%s, value=%s, expiresAt=%d", entry.Key, entry.Value, entry.ExpiresAt)
 	}
 	// 迭代器
-	iter := db.NewIterator(&IteratorOptions{
+	iter := interator.NewIterator(&interator.Options{
 		Prefix: []byte("he"),
 		IsAsc:  false,
 	})
@@ -30,7 +31,7 @@ func TestAPI(t *testing.T) {
 		it := iter.Item()
 		t.Logf("db.NewIterator key=%s, value=%s", it.Key(), it.Value())
 	}
-	t.Logf("db.Stats=%+v", db.Stats())
+	t.Logf("db.Stats=%+v", db.Info())
 	// 删除
 	if err := db.Del([]byte("hello")); err != nil {
 		t.Fatal(err)

@@ -1,4 +1,4 @@
-package api
+package interator
 
 // 迭代器
 type Iterator interface {
@@ -11,6 +11,17 @@ type Iterator interface {
 type Item struct {
 	key []byte
 	val []byte
+}
+type Options struct {
+	Prefix []byte
+	IsAsc  bool
+}
+
+func NewIterator(opt *Options) Iterator {
+	return &DBIterator{}
+}
+
+type IteratorOptions struct {
 }
 
 func (it *Item) Key() []byte {
@@ -37,7 +48,4 @@ func (iter *DBIterator) Item() *Item {
 }
 func (iter *DBIterator) Close() error {
 	return nil
-}
-func (db *DB) NewIterator(opt *IteratorOptions) Iterator {
-	return &DBIterator{}
 }
