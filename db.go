@@ -1,9 +1,9 @@
 package coreKV
 
 import (
-	"github.com/logikoisto/coreKV/file"
-	"github.com/logikoisto/coreKV/interator"
-	"github.com/logikoisto/coreKV/lsm"
+	"github.com/hardcorexs/corekv/file"
+	"github.com/hardcorexs/corekv/iterator"
+	"github.com/hardcorexs/corekv/lsm"
 )
 
 type (
@@ -12,7 +12,7 @@ type (
 		Set(data *Entry) error
 		Get(key []byte) (*Entry, error)
 		Del(key []byte) error
-		NewIterator(opt *interator.IteratorOptions) interator.Iterator
+		NewIterator(opt *iterator.IteratorOptions) iterator.Iterator
 		Info() *Stats
 		Close() error
 	}
