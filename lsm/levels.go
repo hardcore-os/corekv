@@ -1,6 +1,6 @@
 package lsm
 
-import "github.com/logikoisto/coreKV/file"
+import "github.com/hardcorexs/corekv/file"
 
 type levelManager struct {
 	opt      *Options

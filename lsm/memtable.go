@@ -1,8 +1,8 @@
 package lsm
 
 import (
-	"github.com/logikoisto/coreKV/file"
-	"github.com/logikoisto/coreKV/utils"
+	"github.com/hardcorexs/corekv/file"
+	"github.com/hardcorexs/corekv/utils"
 )
 
 // MemTable

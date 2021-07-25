@@ -1,4 +1,4 @@
-package interator
+package iterator
 
 // 迭代器
 type Iterator interface {
