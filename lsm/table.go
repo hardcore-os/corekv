@@ -1,6 +1,6 @@
 package lsm
 
-import "github.com/hardcorexs/corekv/file"
+import "github.com/hardcore-os/corekv/file"
 
 type table struct {
 	ss *file.SSTable

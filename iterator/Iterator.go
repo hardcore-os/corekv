@@ -21,9 +21,6 @@ func NewIterator(opt *Options) Iterator {
 	return &DBIterator{}
 }
 
-type IteratorOptions struct {
-}
-
 func (it *Item) Key() []byte {
 	return it.key
 }

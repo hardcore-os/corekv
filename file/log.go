@@ -7,6 +7,18 @@ type LogFile struct {
 	f *os.File
 }
 
+// Close
+func (lf *LogFile) Close() error {
+	if err := lf.f.Close(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (lf *LogFile) Write(bytes []byte) error {
+	return nil
+}
+
 // Options
 type Options struct {
 	name string

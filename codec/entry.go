@@ -1,6 +1,8 @@
-package coreKV
+package codec
 
-import "time"
+import (
+	"time"
+)
 
 type Entry struct {
 	Key       []byte

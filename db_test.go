@@ -1,7 +1,8 @@
-package coreKV
+package corekv
 
 import (
-	"github.com/hardcorexs/corekv/iterator"
+	"github.com/hardcore-os/corekv/codec"
+	"github.com/hardcore-os/corekv/iterator"
 	"testing"
 	"time"
 )
@@ -11,7 +12,7 @@ func TestAPI(t *testing.T) {
 	db := Open(opt)
 	defer func() { _ = db.Close() }()
 	// 写入
-	e := NewEntry([]byte("hello"), []byte("coreKV")).WithTTL(1 * time.Second)
+	e := codec.NewEntry([]byte("hello"), []byte("coreKV")).WithTTL(1 * time.Second)
 	if err := db.Set(e); err != nil {
 		t.Fatal(err)
 	}
