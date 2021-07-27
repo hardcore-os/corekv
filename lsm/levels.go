@@ -1,8 +1,9 @@
 package lsm
 
 import (
-	"github.com/hardcore-os/corekv/codec"
 	"github.com/hardcore-os/corekv/file"
+	"github.com/hardcore-os/corekv/utils"
+	"github.com/hardcore-os/corekv/utils/codec"
 )
 
 type levelManager struct {
@@ -13,15 +14,22 @@ type levelManager struct {
 }
 
 type levelHandler struct {
-	tables []*table
+	levelNum int
+	tables   []*table
 }
 
 func (lh *levelHandler) close() error {
 	return nil
 }
 
-func (lh *levelHandler) Get(key []byte) *codec.Entry {
-	return nil
+func (lh *levelHandler) Get(key []byte) (*codec.Entry, error) {
+	// 如果是第0层文件则进行特殊处理
+	if lh.levelNum == 0 {
+		// logic...
+	} else {
+		// logic...
+	}
+	return nil, nil
 }
 func (lm *levelManager) close() error {
 	if err := lm.cache.close(); err != nil {
@@ -54,8 +62,11 @@ func (lm *levelManager) loadManifest() {
 }
 func (lm *levelManager) build() {
 	// 如果manifest文件是空的 则进行初始化
-	lm.levels = make([]*levelHandler, 0)
-	lm.levels = append(lm.levels, &levelHandler{tables: []*table{openTable(lm.opt)}})
+	lm.levels = make([]*levelHandler, 8)
+	lm.levels[0] = &levelHandler{tables: []*table{openTable(lm.opt)}, levelNum: 0}
+	for num := 1; num < utils.MaxLevelNum; num++ {
+		lm.levels[num] = &levelHandler{tables: []*table{openTable(lm.opt)}, levelNum: num}
+	}
 	// 逐一加载sstable 的index block 构建cache
 	lm.loadCache()
 }
@@ -65,18 +76,21 @@ func (lm *levelManager) flush(immutable *memTable) error {
 	return nil
 }
 
-func (lm *levelManager) Get(key []byte) *codec.Entry {
-	var entry *codec.Entry
+func (lm *levelManager) Get(key []byte) (*codec.Entry, error) {
+	var (
+		entry *codec.Entry
+		err   error
+	)
 	// L0层查询
-	if entry = lm.levels[0].Get(key); entry != nil {
-		return entry
+	if entry, err = lm.levels[0].Get(key); entry != nil {
+		return entry, err
 	}
 	// L1-7层查询
 	for level := 1; level < 8; level++ {
 		ld := lm.levels[level]
-		if entry = ld.Get(key); entry != nil {
-			return entry
+		if entry, err = ld.Get(key); entry != nil {
+			return entry, err
 		}
 	}
-	return entry
+	return entry, nil
 }

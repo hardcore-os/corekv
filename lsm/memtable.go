@@ -1,9 +1,9 @@
 package lsm
 
 import (
-	"github.com/hardcore-os/corekv/codec"
 	"github.com/hardcore-os/corekv/file"
 	"github.com/hardcore-os/corekv/utils"
+	"github.com/hardcore-os/corekv/utils/codec"
 )
 
 // MemTable
@@ -35,10 +35,10 @@ func (m *memTable) set(entry *codec.Entry) error {
 	return nil
 }
 
-func (m *memTable) Get(key []byte) *codec.Entry {
+func (m *memTable) Get(key []byte) (*codec.Entry, error) {
 	// 索引检查当前的key是否在表中 O(1) 的时间复杂度
 	// 从内存表中获取数据
-	return m.sl.Search(key)
+	return m.sl.Search(key), nil
 }
 
 //recovery

@@ -1,6 +1,6 @@
 package file
 
-import "github.com/hardcore-os/corekv/codec"
+import "github.com/hardcore-os/corekv/utils/codec"
 
 type WalFile struct {
 	f *LogFile

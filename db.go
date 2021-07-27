@@ -1,10 +1,10 @@
 package corekv
 
 import (
-	"github.com/hardcore-os/corekv/codec"
 	"github.com/hardcore-os/corekv/iterator"
 	"github.com/hardcore-os/corekv/lsm"
 	"github.com/hardcore-os/corekv/utils"
+	"github.com/hardcore-os/corekv/utils/codec"
 	"github.com/hardcore-os/corekv/vlog"
 )
 
@@ -60,35 +60,48 @@ func (db *DB) Close() error {
 
 func (db *DB) Del(key []byte) error {
 	// 写入一个值为nil的entry 作为墓碑消息实现删除
-	return nil
+	return db.Set(&codec.Entry{
+		Key:       key,
+		Value:     nil,
+		ExpiresAt: 0,
+	})
 }
 func (db *DB) Set(data *codec.Entry) error {
 	// 做一些必要性的检查
 	// 如果value 大于一个阈值 则创建值指针，并将其写入vlog中
+	var valuePtr *codec.ValuePtr
 	if utils.ValueSize(data.Value) > db.opt.ValueThreshold {
-		valuePtr := vlog.NewValuePtr(data)
+		valuePtr = codec.NewValuePtr(data)
 		// 先写入vlog不会有事务问题，因为如果lsm写入失败，vlog会在GC阶段清理无效的key
-		if err := db.vlog.Set(valuePtr); err != nil {
+		if err := db.vlog.Set(data); err != nil {
 			return err
 		}
 	}
-	// 写入LSM
-	if err := db.lsm.Set(data); err != nil {
-		return err
+	// 写入LSM, 如果写值指针不空则替换值entry.value的值
+	if valuePtr != nil {
+		data.Value = codec.ValuePtrCodec(valuePtr)
 	}
-	return nil
+	return db.lsm.Set(data)
 }
 func (db *DB) Get(key []byte) (*codec.Entry, error) {
-	var entry *codec.Entry
+	var (
+		entry *codec.Entry
+		err   error
+	)
 	// 检查输入
 	// 从内存表中读取数据
-	if entry = db.lsm.Get(key); entry != nil {
-		return entry, nil
+	if entry, err = db.lsm.Get(key); err == nil {
+		return entry, err
 	}
-	// 没读到从table中读取数据，迭代不同的level去读取
-	return &codec.Entry{}, nil
+	// 检查从lsm拿到的value是否是value ptr,是则从vlog中拿值
+	if entry != nil && codec.IsValuePtr(entry) {
+		if entry, err = db.vlog.Get(entry); err == nil {
+			return entry, err
+		}
+	}
+	return nil, nil
 }
 func (db *DB) Info() *Stats {
 	// 读取stats结构，打包数据并返回
-	return &Stats{}
+	return db.stats
 }

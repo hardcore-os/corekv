@@ -1,8 +1,8 @@
 package lsm
 
 import (
-	"github.com/hardcore-os/corekv/codec"
 	"github.com/hardcore-os/corekv/utils"
+	"github.com/hardcore-os/corekv/utils/codec"
 )
 
 type LSM struct {
@@ -73,15 +73,18 @@ func (lsm *LSM) Set(entry *codec.Entry) error {
 	return nil
 }
 
-func (lsm *LSM) Get(key []byte) *codec.Entry {
-	var entry *codec.Entry
+func (lsm *LSM) Get(key []byte) (*codec.Entry, error) {
+	var (
+		entry *codec.Entry
+		err   error
+	)
 	// 从内存表中查询,先查活跃表，在查不变表
-	if entry = lsm.memTable.Get(key); entry != nil {
-		return entry
+	if entry, err = lsm.memTable.Get(key); entry != nil {
+		return entry, err
 	}
 	for _, imm := range lsm.immutables {
-		if entry = imm.Get(key); entry != nil {
-			return entry
+		if entry, err = imm.Get(key); entry != nil {
+			return entry, err
 		}
 	}
 	// 从level manger查询

@@ -1,6 +1,9 @@
 package vlog
 
-import "github.com/hardcore-os/corekv/utils"
+import (
+	"github.com/hardcore-os/corekv/utils"
+	"github.com/hardcore-os/corekv/utils/codec"
+)
 
 type Options struct {
 }
@@ -34,6 +37,11 @@ func (v *VLog) StartGC() {
 }
 
 // Set
-func (v *VLog) Set(ptr *ValuePtr) error {
+func (v *VLog) Set(entry *codec.Entry) error {
 	return nil
+}
+
+func (v *VLog) Get(entry *codec.Entry) (*codec.Entry, error) {
+	// valuePtr := codec.ValuePtrDecode(entry.Value)
+	return nil, nil
 }

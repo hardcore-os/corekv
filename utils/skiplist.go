@@ -1,6 +1,8 @@
 package utils
 
-import "github.com/hardcore-os/corekv/codec"
+import (
+	"github.com/hardcore-os/corekv/utils/codec"
+)
 
 // 跳表的基础实现
 type Skiplist struct {
