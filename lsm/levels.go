@@ -55,7 +55,7 @@ func newLevelManager(opt *Options) *levelManager {
 	return lm
 }
 func (lm *levelManager) loadCache() {
-
+	lm.cache = newCache(lm.opt)
 }
 func (lm *levelManager) loadManifest() {
 	lm.manifest = file.OpenManifest(&file.Options{})
