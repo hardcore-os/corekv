@@ -9,7 +9,7 @@ import (
 // MemTable
 type memTable struct {
 	wal *file.WalFile
-	sl  *utils.Skiplist
+	sl  *utils.SkipList
 }
 
 // Close
