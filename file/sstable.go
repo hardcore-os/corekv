@@ -1,7 +1,7 @@
 package file
 
 type SSTable struct {
-	f *LogFile
+	f *MockFile
 }
 
 func OpenSStable(opt *Options) *SSTable {

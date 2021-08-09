@@ -58,7 +58,7 @@ func (lm *levelManager) loadCache() {
 	lm.cache = newCache(lm.opt)
 }
 func (lm *levelManager) loadManifest() {
-	lm.manifest = file.OpenManifest(&file.Options{})
+	lm.manifest = file.OpenManifest(&file.Options{Name: "manifest"})
 }
 func (lm *levelManager) build() {
 	// 如果manifest文件是空的 则进行初始化

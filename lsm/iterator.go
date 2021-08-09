@@ -49,7 +49,7 @@ func (iter *Iterator) Close() error {
 type memIterator struct {
 	it    iterator.Item
 	iters []*Iterator
-	sl    *utils.Skiplist
+	sl    *utils.SkipList
 }
 
 func (m *memTable) NewIterator(opt *iterator.Options) iterator.Iterator {
