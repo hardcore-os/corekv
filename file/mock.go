@@ -30,6 +30,6 @@ type Options struct {
 // OpenMockFile
 func OpenMockFile(opt *Options) *MockFile {
 	lf := &MockFile{}
-	lf.f, _ = os.Create(opt.Name)
+	lf.f, _ = os.Open(opt.Name)
 	return lf
 }

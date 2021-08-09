@@ -3,8 +3,9 @@ package file
 import (
 	"bufio"
 	"encoding/csv"
-	"github.com/hardcore-os/corekv/utils"
 	"io"
+
+	"github.com/hardcore-os/corekv/utils"
 )
 
 type Manifest struct {
@@ -18,6 +19,11 @@ func (mf *Manifest) Close() error {
 		return err
 	}
 	return nil
+}
+
+// Tables 获取table的list
+func (mf *Manifest) Tables() [][]string {
+	return mf.tables
 }
 
 // OpenManifest
@@ -35,7 +41,11 @@ func OpenManifest(opt *Options) *Manifest {
 			panic(err)
 		}
 		// TODO: csv 读取manifest
-		_ = line
+		for i := 0; i < utils.MaxLevelNum; i++ {
+			for j, tableName := range line {
+				mf.tables[i][j] = tableName
+			}
+		}
 	}
 	return mf
 }

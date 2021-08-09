@@ -63,9 +63,13 @@ func (lm *levelManager) loadManifest() {
 func (lm *levelManager) build() {
 	// 如果manifest文件是空的 则进行初始化
 	lm.levels = make([]*levelHandler, 8)
-	lm.levels[0] = &levelHandler{tables: []*table{openTable(lm.opt)}, levelNum: 0}
-	for num := 1; num < utils.MaxLevelNum; num++ {
-		lm.levels[num] = &levelHandler{tables: []*table{openTable(lm.opt)}, levelNum: num}
+	tables := lm.manifest.Tables()
+	for num := 0; num < utils.MaxLevelNum; num++ {
+		lm.levels[num] = &levelHandler{levelNum: num}
+		lm.levels[num].tables = make([]*table, len(tables[num]))
+		for i := range tables[num] {
+			lm.levels[num].tables[i] = openTable(lm.opt, tables[num][i])
+		}
 	}
 	// 逐一加载sstable 的index block 构建cache
 	lm.loadCache()
