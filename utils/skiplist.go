@@ -2,13 +2,14 @@ package utils
 
 import (
 	"bytes"
-	"github.com/hardcore-os/corekv/utils/codec"
 	"math/rand"
 	"time"
+
+	"github.com/hardcore-os/corekv/utils/codec"
 )
 
 const (
-	DefaultMaxLevel = 48
+	defaultMaxLevel = 48
 )
 
 type SkipList struct {
@@ -25,13 +26,13 @@ func NewSkipList() *SkipList {
 
 	return &SkipList{
 		header: &Element{
-			levels: make([]*Element, DefaultMaxLevel),
+			levels: make([]*Element, defaultMaxLevel),
 			Key:    nil,
 			Val:    nil,
 			score:  0,
 		},
 		rand:     rand.New(source),
-		maxLevel: DefaultMaxLevel,
+		maxLevel: defaultMaxLevel,
 		length:   0,
 	}
 }
@@ -59,7 +60,7 @@ func (list *SkipList) Add(data *codec.Entry) error {
 	max := len(list.header.levels)
 	prevElem := list.header
 
-	var prevElemHeaders [DefaultMaxLevel]*Element
+	var prevElemHeaders [defaultMaxLevel]*Element
 
 	for i := max - 1; i >= 0; {
 		//keep visit path here
@@ -142,7 +143,7 @@ func (list *SkipList) Remove(key []byte) error {
 	max := len(list.header.levels)
 	prevElem := list.header
 
-	var prevElemHeaders [DefaultMaxLevel]*Element
+	var prevElemHeaders [defaultMaxLevel]*Element
 	var elem *Element
 
 	for i := max - 1; i >= 0; {

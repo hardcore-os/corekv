@@ -1,6 +1,11 @@
 package file
 
-import "os"
+import (
+	"fmt"
+	"os"
+
+	"github.com/hardcore-os/corekv/utils"
+)
 
 // MockFile
 type MockFile struct {
@@ -25,11 +30,14 @@ func (lf *MockFile) Read(bytes []byte) (int, error) {
 // Options
 type Options struct {
 	Name string
+	Dir  string
 }
 
-// OpenMockFile
+// OpenMockFile mock 文件
 func OpenMockFile(opt *Options) *MockFile {
+	var err error
 	lf := &MockFile{}
-	lf.f, _ = os.Open(opt.Name)
+	lf.f, err = os.Open(fmt.Sprintf("%s/%s", opt.Dir, opt.Name))
+	utils.Panic(err)
 	return lf
 }

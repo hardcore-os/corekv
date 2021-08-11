@@ -2,8 +2,10 @@ package corekv
 
 import "github.com/hardcore-os/corekv/utils"
 
+// Options corekv 总的配置文件
 type Options struct {
 	ValueThreshold int64
+	WorkDir        string
 }
 
 // NewDefaultOptions 返回默认的options

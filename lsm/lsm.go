@@ -15,6 +15,7 @@ type LSM struct {
 
 //Options
 type Options struct {
+	WorkDir string
 }
 
 // 关闭lsm
