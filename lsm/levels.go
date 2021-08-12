@@ -56,23 +56,35 @@ func newLevelManager(opt *Options) *levelManager {
 }
 func (lm *levelManager) loadCache() {
 	lm.cache = newCache(lm.opt)
+	// 添加 idx cache
+	for _, level := range lm.levels {
+		for _, table := range level.tables {
+			lm.cache.addIndex(table.ss.FID(), table)
+		}
+	}
 }
 func (lm *levelManager) loadManifest() {
-	lm.manifest = file.OpenManifest(&file.Options{})
+	lm.manifest = file.OpenManifest(&file.Options{Name: "manifest", Dir: lm.opt.WorkDir})
 }
 func (lm *levelManager) build() {
 	// 如果manifest文件是空的 则进行初始化
-	lm.levels = make([]*levelHandler, 8)
-	lm.levels[0] = &levelHandler{tables: []*table{openTable(lm.opt)}, levelNum: 0}
-	for num := 1; num < utils.MaxLevelNum; num++ {
-		lm.levels[num] = &levelHandler{tables: []*table{openTable(lm.opt)}, levelNum: num}
+	lm.levels = make([]*levelHandler, utils.MaxLevelNum)
+	tables := lm.manifest.Tables()
+	for num := 0; num < utils.MaxLevelNum; num++ {
+		lm.levels[num] = &levelHandler{levelNum: num}
+		lm.levels[num].tables = make([]*table, len(tables[num]))
+		for i := range tables[num] {
+			lm.levels[num].tables[i] = openTable(lm.opt, tables[num][i])
+		}
 	}
 	// 逐一加载sstable 的index block 构建cache
 	lm.loadCache()
 }
 
+// 向L0层flush一个sstable
 func (lm *levelManager) flush(immutable *memTable) error {
-	// 向L0层flush一个sstable
+	// flush 跳表中的数据转化为sst文件
+	// 删除wal文件并创建一个新的wal文件
 	return nil
 }
 
@@ -86,7 +98,7 @@ func (lm *levelManager) Get(key []byte) (*codec.Entry, error) {
 		return entry, err
 	}
 	// L1-7层查询
-	for level := 1; level < 8; level++ {
+	for level := 1; level < utils.MaxLevelNum; level++ {
 		ld := lm.levels[level]
 		if entry, err = ld.Get(key); entry != nil {
 			return entry, err
