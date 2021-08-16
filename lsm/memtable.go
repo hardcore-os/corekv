@@ -12,6 +12,12 @@ type memTable struct {
 	sl  *utils.SkipList
 }
 
+//todo: mock, need to add real logic
+func NewMemtable() (*memTable, error) {
+
+	return nil, nil
+}
+
 // Close
 func (m *memTable) close() error {
 	if err := m.wal.Close(); err != nil {
@@ -41,8 +47,16 @@ func (m *memTable) Get(key []byte) (*codec.Entry, error) {
 	return m.sl.Search(key), nil
 }
 
+func (m *memTable) Size() int64 {
+	return m.sl.Size()
+}
+
 //recovery
 func recovery(opt *Options) (*memTable, []*memTable) {
-	fileOpt := &file.Options{}
+	// TODO 这里需要实现获取mem list
+	fileOpt := &file.Options{
+		Dir:  opt.WorkDir,
+		Name: "00001.mem",
+	}
 	return &memTable{wal: file.OpenWalFile(fileOpt), sl: utils.NewSkipList()}, []*memTable{}
 }

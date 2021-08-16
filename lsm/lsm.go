@@ -15,13 +15,16 @@ type LSM struct {
 
 //Options
 type Options struct {
-	WorkDir string
+	WorkDir      string
+	MemTableSize int64
 }
 
 // 关闭lsm
 func (lsm *LSM) Close() error {
-	if err := lsm.memTable.close(); err != nil {
-		return err
+	if lsm.memTable != nil {
+		if err := lsm.memTable.close(); err != nil {
+			return err
+		}
 	}
 	for i := range lsm.immutables {
 		if err := lsm.immutables[i].close(); err != nil {
@@ -54,14 +57,22 @@ func (lsm *LSM) StartMerge() {
 	for {
 		select {
 		case <-lsm.closer.Wait():
+			break
 		}
 		// 处理并发的合并过程
 	}
 }
 
-func (lsm *LSM) Set(entry *codec.Entry) error {
+func (lsm *LSM) Set(entry *codec.Entry) (err error) {
 	// 检查当前memtable是否写满，是的话创建新的memtable,并将当前内存表写到immutables中
 	// 否则写入当前memtable中
+	if lsm.memTable.Size() > lsm.option.MemTableSize {
+		lsm.immutables = append(lsm.immutables, lsm.memTable)
+		if lsm.memTable, err = NewMemtable(); err != nil {
+			return err
+		}
+	}
+
 	if err := lsm.memTable.set(entry); err != nil {
 		return err
 	}
@@ -70,6 +81,10 @@ func (lsm *LSM) Set(entry *codec.Entry) error {
 		if err := lsm.levels.flush(immutable); err != nil {
 			return err
 		}
+	}
+	// 释放 immutable 表
+	for i := 0; i < len(lsm.immutables); i++ {
+		lsm.immutables[i].close()
 	}
 	return nil
 }
