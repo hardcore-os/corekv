@@ -2,7 +2,6 @@ package lsm
 
 import (
 	"github.com/hardcore-os/corekv/iterator"
-	"github.com/hardcore-os/corekv/utils"
 	"github.com/hardcore-os/corekv/utils/codec"
 )
 
@@ -47,29 +46,26 @@ func (iter *Iterator) Close() error {
 
 // 内存表迭代器
 type memIterator struct {
-	it    iterator.Item
-	iters []*Iterator
-	sl    *utils.SkipList
+	innerIter iterator.Iterator
 }
 
 func (m *memTable) NewIterator(opt *iterator.Options) iterator.Iterator {
-	return &memIterator{sl: m.sl}
+	return &memIterator{innerIter: m.sl.NewSkipListIterator()}
 }
 func (iter *memIterator) Next() {
-	iter.it = nil
+	iter.innerIter.Next()
 }
 func (iter *memIterator) Valid() bool {
-	return iter.it != nil
+	return iter.innerIter.Valid()
 }
 func (iter *memIterator) Rewind() {
-	entry := iter.sl.Search([]byte("hello"))
-	iter.it = &Item{e: entry}
+	iter.innerIter.Rewind()
 }
 func (iter *memIterator) Item() iterator.Item {
-	return iter.it
+	return iter.innerIter.Item()
 }
 func (iter *memIterator) Close() error {
-	return nil
+	return iter.innerIter.Close()
 }
 
 // levelManager上的迭代器

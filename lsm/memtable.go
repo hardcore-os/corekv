@@ -12,6 +12,12 @@ type memTable struct {
 	sl  *utils.SkipList
 }
 
+//todo: mock, need to add real logic
+func NewMemtable() (*memTable, error) {
+
+	return nil, nil
+}
+
 // Close
 func (m *memTable) close() error {
 	if err := m.wal.Close(); err != nil {
@@ -39,6 +45,10 @@ func (m *memTable) Get(key []byte) (*codec.Entry, error) {
 	// 索引检查当前的key是否在表中 O(1) 的时间复杂度
 	// 从内存表中获取数据
 	return m.sl.Search(key), nil
+}
+
+func (m *memTable) Size() int64 {
+	return m.sl.Size()
 }
 
 //recovery
