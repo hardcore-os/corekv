@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/hardcore-os/corekv/utils/codec"
@@ -19,6 +20,7 @@ type SkipList struct {
 
 	maxLevel int
 	length   int
+	lock     sync.RWMutex
 }
 
 func NewSkipList() *SkipList {
@@ -54,6 +56,8 @@ func newElement(score float64, key, val []byte, level int) *Element {
 }
 
 func (list *SkipList) Add(data *codec.Entry) error {
+	list.lock.Lock()
+	defer list.lock.Unlock()
 	score := list.calcScore(data.Key)
 	var elem *Element
 
@@ -96,7 +100,6 @@ func (list *SkipList) Add(data *codec.Entry) error {
 	elem = newElement(score, data.Key, data.Value, level)
 
 	//to add elem to the skiplist
-
 	for i := 0; i < level; i++ {
 		elem.levels[i] = prevElemHeaders[i].levels[i]
 		prevElemHeaders[i].levels[i] = elem
@@ -107,6 +110,8 @@ func (list *SkipList) Add(data *codec.Entry) error {
 }
 
 func (list *SkipList) Search(key []byte) (e *codec.Entry) {
+	list.lock.RLock()
+	defer list.lock.RUnlock()
 	if list.length == 0 {
 		return nil
 	}
@@ -137,7 +142,7 @@ func (list *SkipList) Search(key []byte) (e *codec.Entry) {
 	return
 }
 
-func (list *SkipList) Remove(key []byte) error {
+/*func (list *SkipList) Remove(key []byte) error {
 	score := list.calcScore(key)
 
 	max := len(list.header.levels)
@@ -182,7 +187,7 @@ func (list *SkipList) Remove(key []byte) error {
 
 	list.length--
 	return nil
-}
+}*/
 
 func (list *SkipList) Close() error {
 	return nil
@@ -223,7 +228,7 @@ func (list *SkipList) randLevel() int {
 	}
 	i := 1
 	for ; i < list.maxLevel; i++ {
-		if list.rand.Intn(1000)%2 == 0 {
+		if RandN(1000)%2 == 0 {
 			return i
 		}
 	}
