@@ -28,14 +28,14 @@ func TestSkipList_compare(t *testing.T) {
 
 	byte1 := []byte("1")
 	byte2 := []byte("2")
+	entry1 := codec.NewEntry(byte1, byte1)
 
 	byte1score := list.calcScore(byte1)
 	byte2score := list.calcScore(byte2)
 
 	elem := &Element{
 		levels: nil,
-		Key:    byte2,
-		Val:    nil,
+		entry:  entry1,
 		score:  byte2score,
 	}
 
@@ -51,7 +51,7 @@ func TestSkipListBasicCRUD(t *testing.T) {
 	assert.Equal(t, entry1.Value, list.Search(entry1.Key).Value)
 
 	entry2 := codec.NewEntry([]byte("Key2"), []byte("Val2"))
-	list.Add(entry2)
+	assert.Nil(t, list.Add(entry2))
 	assert.Equal(t, entry2.Value, list.Search(entry2.Key).Value)
 
 	//Get a not exist entry

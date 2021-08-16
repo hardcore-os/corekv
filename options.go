@@ -6,6 +6,7 @@ import "github.com/hardcore-os/corekv/utils"
 type Options struct {
 	ValueThreshold int64
 	WorkDir        string
+	MemTableSize   int64
 }
 
 // NewDefaultOptions 返回默认的options
