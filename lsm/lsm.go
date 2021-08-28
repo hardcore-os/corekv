@@ -57,7 +57,7 @@ func (lsm *LSM) StartMerge() {
 	for {
 		select {
 		case <-lsm.closer.Wait():
-			break
+			return
 		}
 		// 处理并发的合并过程
 	}
