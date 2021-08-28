@@ -31,7 +31,7 @@ func (v *VLog) StartGC() {
 	for {
 		select {
 		case <-v.closer.Wait():
-			break
+			return
 		}
 		// gc logic...
 	}
