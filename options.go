@@ -11,7 +11,10 @@ type Options struct {
 
 // NewDefaultOptions 返回默认的options
 func NewDefaultOptions() *Options {
-	opt := &Options{}
+	opt := &Options{
+		WorkDir:      "./work_test",
+		MemTableSize: 1024,
+	}
 	opt.ValueThreshold = utils.DefaultValueThreshold
 	return opt
 }

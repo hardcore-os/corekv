@@ -21,8 +21,10 @@ type Options struct {
 
 // 关闭lsm
 func (lsm *LSM) Close() error {
-	if err := lsm.memTable.close(); err != nil {
-		return err
+	if lsm.memTable != nil {
+		if err := lsm.memTable.close(); err != nil {
+			return err
+		}
 	}
 	for i := range lsm.immutables {
 		if err := lsm.immutables[i].close(); err != nil {
@@ -55,6 +57,7 @@ func (lsm *LSM) StartMerge() {
 	for {
 		select {
 		case <-lsm.closer.Wait():
+			break
 		}
 		// 处理并发的合并过程
 	}
@@ -78,6 +81,10 @@ func (lsm *LSM) Set(entry *codec.Entry) (err error) {
 		if err := lsm.levels.flush(immutable); err != nil {
 			return err
 		}
+	}
+	// 释放 immutable 表
+	for i := 0; i < len(lsm.immutables); i++ {
+		lsm.immutables[i].close()
 	}
 	return nil
 }

@@ -1,10 +1,11 @@
 package corekv
 
 import (
-	"github.com/hardcore-os/corekv/iterator"
-	"github.com/hardcore-os/corekv/utils/codec"
 	"testing"
 	"time"
+
+	"github.com/hardcore-os/corekv/iterator"
+	"github.com/hardcore-os/corekv/utils/codec"
 )
 
 func TestAPI(t *testing.T) {
@@ -27,6 +28,7 @@ func TestAPI(t *testing.T) {
 		Prefix: []byte("hello"),
 		IsAsc:  false,
 	})
+	defer func() { _ = iter.Close() }()
 	defer func() { _ = iter.Close() }()
 	for iter.Rewind(); iter.Valid(); iter.Next() {
 		it := iter.Item()

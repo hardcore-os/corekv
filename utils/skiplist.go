@@ -2,11 +2,11 @@ package utils
 
 import (
 	"bytes"
-	"github.com/hardcore-os/corekv/iterator"
 	"math/rand"
 	"sync"
 	"time"
 
+	"github.com/hardcore-os/corekv/iterator"
 	"github.com/hardcore-os/corekv/utils/codec"
 )
 
@@ -25,6 +25,19 @@ type SkipList struct {
 	size     int64
 }
 
+type SkipListIterator struct {
+	it *Element
+	sl *SkipList
+}
+
+// NewIterator 跳表迭代器
+func (sl *SkipList) NewIterator(opt *iterator.Options) iterator.Iterator {
+	iter := &SkipListIterator{
+		it: sl.header,
+		sl: sl,
+	}
+	return iter
+}
 func NewSkipList() *SkipList {
 	source := rand.NewSource(time.Now().UnixNano())
 
@@ -38,6 +51,22 @@ func NewSkipList() *SkipList {
 		maxLevel: defaultMaxLevel,
 		length:   0,
 	}
+}
+
+func (iter *SkipListIterator) Next() {
+	iter.it = iter.it.levels[0]
+}
+func (iter *SkipListIterator) Valid() bool {
+	return iter.it != nil
+}
+func (iter *SkipListIterator) Rewind() {
+	iter.it = iter.sl.header.levels[0]
+}
+func (iter *SkipListIterator) Item() iterator.Item {
+	return iter.it
+}
+func (iter *SkipListIterator) Close() error {
+	return nil
 }
 
 type Element struct {
@@ -102,7 +131,6 @@ func (list *SkipList) Add(data *codec.Entry) error {
 	level := list.randLevel()
 
 	elem = newElement(score, data, level)
-
 	//to add elem to the skiplist
 	for i := 0; i < level; i++ {
 		elem.levels[i] = prevElemHeaders[i].levels[i]
@@ -264,7 +292,7 @@ func (iter *SkipListIter) Valid() bool {
 	return iter.elem != nil
 }
 func (iter *SkipListIter) Rewind() {
-	iter.elem = iter.header
+	iter.elem = iter.header.levels[0]
 }
 func (iter *SkipListIter) Item() iterator.Item {
 	return iter.elem

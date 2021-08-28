@@ -18,6 +18,7 @@ func (s *Stats) StartStats() {
 	for {
 		select {
 		case <-s.closer.Wait():
+			break
 		}
 		// stats logic...
 	}

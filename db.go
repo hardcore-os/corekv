@@ -28,14 +28,14 @@ type (
 	}
 )
 
-func Open(options *Options) *DB {
-	db := &DB{opt: options}
+func Open(opt *Options) *DB {
+	db := &DB{opt: opt}
 	// 初始化LSM结构
-	db.lsm = lsm.NewLSM(&lsm.Options{})
+	db.lsm = lsm.NewLSM(&lsm.Options{WorkDir: opt.WorkDir, MemTableSize: opt.MemTableSize})
 	// 初始化vlog结构
 	db.vlog = vlog.NewVLog(&vlog.Options{})
 	// 初始化统计信息
-	db.stats = newStats(options)
+	db.stats = newStats(opt)
 	// 启动 sstable 的合并压缩过程
 	go db.lsm.StartMerge()
 	// 启动 vlog gc 过程
