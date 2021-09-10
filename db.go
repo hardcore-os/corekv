@@ -33,7 +33,11 @@ type (
 func Open(opt *Options) *DB {
 	db := &DB{opt: opt}
 	// 初始化LSM结构
-	db.lsm = lsm.NewLSM(&lsm.Options{WorkDir: opt.WorkDir, MemTableSize: opt.MemTableSize})
+	db.lsm = lsm.NewLSM(&lsm.Options{
+		WorkDir:      opt.WorkDir,
+		MemTableSize: opt.MemTableSize,
+		SSTableMaxSz: opt.SSTableMaxSz,
+	})
 	// 初始化vlog结构
 	db.vlog = vlog.NewVLog(&vlog.Options{})
 	// 初始化统计信息
