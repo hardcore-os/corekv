@@ -1,7 +1,22 @@
+// Copyright 2021 hardcore-os Project Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License")
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package lsm
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -18,23 +33,12 @@ type table struct {
 }
 
 func openTable(lm *levelManager, tableName string) *table {
-	t := &table{ss: file.OpenSStable(&file.Options{Name: tableName, Dir: lm.opt.WorkDir})}
+	t := &table{ss: file.OpenSStable(&file.Options{FileName: tableName, Dir: lm.opt.WorkDir, Flag: os.O_CREATE | os.O_RDWR, MaxSz: int(lm.opt.SSTableMaxSz)})}
 	// 加载ss文件 索引
 	t.idxs = t.ss.Indexs()
 	// 反引用 level manager
 	t.lm = lm
-	// 获取fid
-	j := 0
-	for i := range tableName {
-		if tableName[i] != '0'-0 {
-			break
-		}
-		j++
-	}
-	fidStr := strings.Split(tableName[j:], ".")[0]
-	fidU64, err := strconv.ParseUint(fidStr, 10, 32)
-	utils.Panic(err)
-	t.fid = uint32(fidU64)
+	t.fid = utils.FID(tableName)
 	return t
 }
 

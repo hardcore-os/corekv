@@ -28,6 +28,8 @@ type (
 	}
 )
 
+// Open DB
+// TODO 这里是不是要上一个目录锁比较好，防止多个进程打开同一个目录?
 func Open(opt *Options) *DB {
 	db := &DB{opt: opt}
 	// 初始化LSM结构

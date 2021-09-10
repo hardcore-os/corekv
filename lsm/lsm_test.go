@@ -1,6 +1,22 @@
+// Copyright 2021 hardcore Project Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License")
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package lsm
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/hardcore-os/corekv/file"
@@ -23,15 +39,18 @@ func TestLevels(t *testing.T) {
 	}
 	// 初始化opt
 	opt := &Options{
-		WorkDir: "../work_test",
+		WorkDir:      "../work_test",
+		SSTableMaxSz: 1 << 20,
+		MemTableSize: 1024,
 	}
 	levelLive := func() {
 		// 初始化
 		levels := newLevelManager(opt)
 		defer func() { _ = levels.close() }()
+		fileName := fmt.Sprintf("%s/%s", opt.WorkDir, "00001.mem")
 		// 构建内存表
 		imm := &memTable{
-			wal: file.OpenWalFile(&file.Options{Name: "00001.mem", Dir: opt.WorkDir}),
+			wal: file.OpenWalFile(&file.Options{FileName: fileName, Dir: opt.WorkDir, Flag: os.O_CREATE | os.O_RDWR, MaxSz: int(opt.SSTableMaxSz)}),
 			sl:  utils.NewSkipList(),
 		}
 		for _, entry := range entrys {
