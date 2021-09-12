@@ -122,8 +122,8 @@ func (lm *levelManager) loadCache() {
 }
 func (lm *levelManager) loadManifest() {
 	//TODO: 从 current 文件中拿到当前manifest文件名
-	fileName := fmt.Sprintf("%s/%s", lm.opt.WorkDir, utils.MANIFEST)
-	lm.manifest = file.OpenManifest(&file.Options{FileName: fileName, Flag: os.O_CREATE | os.O_RDWR, MaxSz: 1 << 20})
+	fileName := fmt.Sprintf("%s/%s", lm.opt.WorkDir, utils.ManifestFilename)
+	lm.manifest = file.OpenManifestFile(&file.Options{FileName: fileName, Flag: os.O_CREATE | os.O_RDWR, MaxSz: 1 << 20})
 }
 func (lm *levelManager) build() {
 	// 如果manifest文件是空的 则进行初始化
