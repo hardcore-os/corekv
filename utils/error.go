@@ -51,6 +51,10 @@ var (
 	ErrEmptyKey = errors.New("Key cannot be empty")
 	// ErrReWriteFailure reWrite failure
 	ErrReWriteFailure = errors.New("reWrite failure")
+	// ErrBadMagic bad magic
+	ErrBadMagic = errors.New("bad magic")
+	// ErrBadChecksum bad check sum
+	ErrBadChecksum = errors.New("bad check sum")
 )
 
 // Panic 如果err 不为nil 则panic
@@ -85,8 +89,8 @@ func location(deep int, fullPath bool) string {
 	return file + ":" + strconv.Itoa(line)
 }
 
-// EqualPanic e p
-func EqualPanic(condition bool, err error) {
+// CondPanic e
+func CondPanic(condition bool, err error) {
 	if condition {
 		Panic(err)
 	}

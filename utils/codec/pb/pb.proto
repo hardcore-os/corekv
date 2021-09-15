@@ -16,7 +16,7 @@
 // Use protos/gen.sh to generate .pb.go files.
 syntax = "proto3";
 
-option go_package = "pb/";
+package pb;
 
 message KV {
   bytes key = 1;

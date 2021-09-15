@@ -13,5 +13,5 @@
  # See the License for the specific language governing permissions and
  # limitations under the License.
 protoDir="utils/codec/pb"
-outDir="utils/codec"
-protoc -I ${protoDir}/  ${protoDir}/pb.proto --go_out=plugins=grpc:${outDir}
+outDir="utils/codec/pb"
+protoc -I ${protoDir}/  ${protoDir}/pb.proto --gofast_out=plugins=grpc:${outDir}
