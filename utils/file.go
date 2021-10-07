@@ -31,6 +31,7 @@ package utils
 import (
 	"bytes"
 	"fmt"
+	"hash/crc32"
 	"io/ioutil"
 	"os"
 	"path"
@@ -38,6 +39,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/hardcore-os/corekv/utils/codec"
 	"github.com/pkg/errors"
 )
 
@@ -103,9 +105,25 @@ func LoadIDMap(dir string) map[uint64]struct{} {
 // a<timestamp> would be sorted higher than aa<timestamp> if we use bytes.compare
 // All keys should have timestamp.
 func CompareKeys(key1, key2 []byte) int {
-	CondPanic(len(key1) > 8 && len(key2) > 8, fmt.Errorf("%s,%s < 8", key1, key2))
+	CondPanic((len(key1) <=8 || len(key2) <= 8), fmt.Errorf("%s,%s < 8", key1, key2))
 	if cmp := bytes.Compare(key1[:len(key1)-8], key2[:len(key2)-8]); cmp != 0 {
 		return cmp
 	}
 	return bytes.Compare(key1[len(key1)-8:], key2[len(key2)-8:])
+}
+
+// VerifyChecksum crc32
+func VerifyChecksum(data []byte, expected []byte) error {
+	actual := uint64(crc32.Checksum(data, CastagnoliCrcTable))
+	expectedU64 := codec.BytesToU64(expected)
+	if actual != expectedU64 {
+		return errors.Wrapf(ErrChecksumMismatch, "actual: %d, expected: %d", actual, expectedU64)
+	}
+
+	return nil
+}
+
+// CalculateChecksum _
+func CalculateChecksum(data []byte) uint64 {
+	return uint64(crc32.Checksum(data, CastagnoliCrcTable))
 }

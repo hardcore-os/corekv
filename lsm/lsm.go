@@ -13,14 +13,18 @@ type LSM struct {
 	closer     *utils.Closer
 }
 
-//Options
+//Options _
 type Options struct {
 	WorkDir      string
 	MemTableSize int64
 	SSTableMaxSz int64
+	// BlockSize is the size of each block inside SSTable in bytes.
+	BlockSize int
+	// BloomFalsePositive is the false positive probabiltiy of bloom filter.
+	BloomFalsePositive float64
 }
 
-// 关闭lsm
+// 关闭lsm _
 func (lsm *LSM) Close() error {
 	if lsm.memTable != nil {
 		if err := lsm.memTable.close(); err != nil {

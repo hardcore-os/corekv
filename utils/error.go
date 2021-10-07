@@ -55,6 +55,8 @@ var (
 	ErrBadMagic = errors.New("bad magic")
 	// ErrBadChecksum bad check sum
 	ErrBadChecksum = errors.New("bad check sum")
+	// ErrChecksumMismatch is returned at checksum mismatch.
+	ErrChecksumMismatch = errors.New("checksum mismatch")
 )
 
 // Panic 如果err 不为nil 则panic
