@@ -69,6 +69,9 @@ func (iter *SkipListIterator) Close() error {
 	return nil
 }
 
+func (iter *SkipListIterator) Seek(key []byte) {
+}
+
 type Element struct {
 	levels []*Element
 	entry  *codec.Entry
@@ -299,4 +302,7 @@ func (iter *SkipListIter) Item() iterator.Item {
 }
 func (iter *SkipListIter) Close() error {
 	return nil
+}
+
+func (iter *SkipListIter) Seek(key []byte) {
 }

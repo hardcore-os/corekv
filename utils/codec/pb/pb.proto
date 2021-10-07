@@ -49,3 +49,15 @@ message ManifestChange {
         uint32 Level   = 3; // Only used for CREATE
         bytes Checksum = 4; // Only used for CREATE
 }
+message TableIndex{
+        repeated BlockOffset offsets = 1;
+        bytes bloomFilter = 2;
+        uint64 maxVersion = 3;
+        uint32 keyCount = 4;
+}
+
+message BlockOffset{
+        bytes key = 1;
+        uint32 offset = 2;
+        uint32 len = 3;
+}
