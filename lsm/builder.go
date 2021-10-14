@@ -34,9 +34,9 @@ type tableBuilder struct {
 	opt        *Options
 	blockList  []*block
 	keyCount   uint32
-	keyHashes  []uint32 // Used for building the bloomfilter.
+	keyHashes  []uint32
 	maxVersion uint64
-	baseKey    []byte // Base key for the current block.
+	baseKey    []byte
 }
 type buildData struct {
 	blockList []*block
@@ -50,9 +50,9 @@ type block struct {
 	entriesIndexStart int
 	chkLen            int
 	data              []byte
-	baseKey           []byte   // Base key for the current block.
-	entryOffsets      []uint32 // Offsets of entries present in current block.
-	end               int      // Points to the end offset of the block.
+	baseKey           []byte
+	entryOffsets      []uint32
+	end               int
 }
 
 type header struct {
@@ -64,9 +64,6 @@ const headerSize = uint16(unsafe.Sizeof(header{}))
 
 // Decode decodes the header.
 func (h *header) decode(buf []byte) {
-	// Copy over data from buf into h. Using *h=unsafe.pointer(...) leads to
-	// pointer alignment issues. See https://github.com/dgraph-io/badger/issues/1096
-	// and comment https://github.com/dgraph-io/badger/pull/1097#pullrequestreview-307361714
 	copy(((*[headerSize]byte)(unsafe.Pointer(h))[:]), buf[:headerSize])
 }
 
@@ -94,8 +91,6 @@ func (tb *tableBuilder) add(e *codec.Entry) {
 
 	var diffKey []byte
 	if len(tb.curBlock.baseKey) == 0 {
-		// Make a copy. Builder should not keep references. Otherwise, caller has to be very careful
-		// and will have to make copies of keys every time they add to builder, which is even worse.
 		tb.curBlock.baseKey = append(tb.curBlock.baseKey[:0], key...)
 		diffKey = key
 	} else {
@@ -109,10 +104,8 @@ func (tb *tableBuilder) add(e *codec.Entry) {
 		diff:    uint16(len(diffKey)),
 	}
 
-	// store current entry's offset
 	tb.curBlock.entryOffsets = append(tb.curBlock.entryOffsets, uint32(tb.curBlock.end))
 
-	// Layout: header, diffKey, value.
 	tb.append(h.encode())
 	tb.append(diffKey)
 
@@ -130,13 +123,11 @@ func (tb *tableBuilder) tryFinishBlock(e *codec.Entry) bool {
 	if tb.curBlock == nil {
 		return true
 	}
-	// If there is no entry till now, we will return false.
+
 	if len(tb.curBlock.entryOffsets) <= 0 {
 		return false
 	}
-	// Integer overflow check for statements below.
 	utils.CondPanic(!((uint32(len(tb.curBlock.entryOffsets))+1)*4+4+8+4 < math.MaxUint32), errors.New("Integer overflow"))
-	// We should include current entry also in size, that's why +1 to len(b.entryOffsets).
 	entriesOffsetsSize := uint32((len(tb.curBlock.entryOffsets)+1)*4 +
 		4 + // size of list
 		8 + // Sum64 in checksum proto
@@ -150,18 +141,6 @@ func (tb *tableBuilder) tryFinishBlock(e *codec.Entry) bool {
 	return estimatedSize > uint32(tb.opt.BlockSize)
 }
 
-/*
-Structure of Block.
-+-------------------+---------------------+--------------------+--------------+------------------+
-| Entry1            | Entry2              | Entry3             | Entry4       | Entry5           |
-+-------------------+---------------------+--------------------+--------------+------------------+
-| Entry6            | ...                 | ...                | ...          | EntryN           |
-+-------------------+---------------------+--------------------+--------------+------------------+
-| Block Meta(contains list of offsets used| Block Meta Size    | Block        | Checksum Size    |
-| to perform binary search in the block)  | (4 Bytes)          | Checksum     | (4 Bytes)        |
-+-----------------------------------------+--------------------+--------------+------------------+
-*/
-// In case the data is encrypted, the "IV" is added to the end of the block.
 func (tb *tableBuilder) finishBlock() {
 	if tb.curBlock == nil || len(tb.curBlock.entryOffsets) == 0 {
 		return
@@ -209,7 +188,6 @@ func (tb *tableBuilder) calculateChecksum(data []byte) []byte {
 	return codec.U64ToBytes(checkSum)
 }
 
-// keyDiff returns a suffix of newKey that is different from b.baseKey.
 func (tb *tableBuilder) keyDiff(newKey []byte) []byte {
 	var i int
 	for i = 0; i < len(newKey) && i < len(tb.curBlock.baseKey); i++ {
@@ -220,6 +198,7 @@ func (tb *tableBuilder) keyDiff(newKey []byte) []byte {
 	return newKey[i:]
 }
 
+// TODO: 这里存在多次的用户空间拷贝过程，需要优化
 func (tb *tableBuilder) flush(sst *file.SSTable) error {
 	bd := tb.done()
 	buf := make([]byte, bd.size)
@@ -247,7 +226,7 @@ func (bd *buildData) Copy(dst []byte) int {
 }
 
 func (tb *tableBuilder) done() buildData {
-	tb.finishBlock() // This will never start a new block.
+	tb.finishBlock()
 	if len(tb.blockList) == 0 {
 		return buildData{}
 	}
@@ -286,8 +265,6 @@ func (tb *tableBuilder) buildIndex(bloom []byte) ([]byte, uint32) {
 	return data, dataSize
 }
 
-// writeBlockOffsets writes all the blockOffets in b.offsets and returns the
-// offsets for the newly written items.
 func (tb *tableBuilder) writeBlockOffsets(tableIndex *pb.TableIndex) []*pb.BlockOffset {
 	var startOffset uint32
 	var offsets []*pb.BlockOffset
@@ -299,12 +276,8 @@ func (tb *tableBuilder) writeBlockOffsets(tableIndex *pb.TableIndex) []*pb.Block
 	return offsets
 }
 
-// writeBlockOffset writes the given key,offset,len triple to the indexBuilder.
-// It returns the offset of the newly written blockoffset.
 func (b *tableBuilder) writeBlockOffset(bl *block, startOffset uint32) *pb.BlockOffset {
-	// Write the key to the buffer.
 	offset := &pb.BlockOffset{}
-	// Build the blockOffset.
 	offset.Key = bl.baseKey
 	offset.Len = uint32(bl.end)
 	offset.Offset = startOffset
@@ -317,7 +290,7 @@ func (b block) verifyCheckSum() error {
 
 type blockIterator struct {
 	data         []byte
-	idx          int // Idx of the entry inside a block
+	idx          int
 	err          error
 	baseKey      []byte
 	key          []byte
@@ -327,8 +300,7 @@ type blockIterator struct {
 
 	tableID uint64
 	blockID int
-	// prevOverlap stores the overlap of the previous key with the base key.
-	// This avoids unnecessary copy of base key when the overlap is same for multiple keys.
+
 	prevOverlap uint16
 
 	it iterator.Item
@@ -347,7 +319,6 @@ func (itr *blockIterator) setBlock(b *block) {
 	itr.entryOffsets = b.entryOffsets
 }
 
-// seek brings us to the first block element that is >= input key.
 func (itr *blockIterator) seek(key []byte) {
 	itr.err = nil
 	startIndex := 0 // This tells from which index we should start binary search.
@@ -363,7 +334,6 @@ func (itr *blockIterator) seek(key []byte) {
 	itr.setIdx(foundEntryIdx)
 }
 
-// setIdx sets the iterator to the entry at index i and set it's key and value.
 func (itr *blockIterator) setIdx(i int) {
 	itr.idx = i
 	if i >= len(itr.entryOffsets) || i < 0 {
@@ -404,9 +374,6 @@ func (itr *blockIterator) setIdx(i int) {
 	entryData := itr.data[startOffset:endOffset]
 	var h header
 	h.decode(entryData)
-	// Header contains the length of key overlap and difference compared to the base key. If the key
-	// before this one had the same or better key overlap, we can avoid copying that part into
-	// itr.key. But, if the overlap was lesser, we could copy over just that portion.
 	if h.overlap > itr.prevOverlap {
 		itr.key = append(itr.key[:itr.prevOverlap], itr.baseKey[itr.prevOverlap:h.overlap]...)
 	}

@@ -102,9 +102,7 @@ func (t *table) getEntry(key, block []byte, idx int) (entry *codec.Entry, err er
 	return nil, utils.ErrKeyNotFound
 }
 
-// block function return a new block. Each block holds a ref and the byte
-// slice stored in the block will be reused when the ref becomes zero. The
-// caller should release the block by calling block.decrRef() on it.
+// 去加载sst对应的block
 func (t *table) block(idx int) (*block, error) {
 	utils.CondPanic(idx < 0, fmt.Errorf("idx=%d", idx))
 	if idx >= len(t.ss.Indexs().Offsets) {
@@ -131,21 +129,18 @@ func (t *table) block(idx int) (*block, error) {
 			t.ss.FID(), b.offset, ko.GetLen())
 	}
 
-	// Read meta data related to block.
 	readPos := len(b.data) - 4 // First read checksum length.
 	b.chkLen = int(codec.BytesToU32(b.data[readPos : readPos+4]))
 
-	// Checksum length greater than block size could happen if the table was compressed and
-	// it was opened with an incorrect compression algorithm (or the data was corrupted).
 	if b.chkLen > len(b.data) {
 		return nil, errors.New("invalid checksum length. Either the data is " +
 			"corrupted or the table options are incorrectly set")
 	}
 
-	// Read checksum and store it
+
 	readPos -= b.chkLen
 	b.checksum = b.data[readPos : readPos+b.chkLen]
-	// Move back and read numEntries in the block.
+	
 	readPos -= 4
 	numEntries := int(codec.BytesToU32(b.data[readPos : readPos+4]))
 	entriesIndexStart := readPos - (numEntries * 4)
@@ -155,18 +150,15 @@ func (t *table) block(idx int) (*block, error) {
 
 	b.entriesIndexStart = entriesIndexStart
 
-	// Drop checksum and checksum length.
-	// The checksum is calculated for actual data + entry index + index length
 	b.data = b.data[:readPos+4]
 
 	if err = b.verifyCheckSum(); err != nil {
 		return nil, err
 	}
 
-	// Decrement the block ref if we could not insert it in the cache.
+
 	t.lm.cache.blocks.Set(key, b)
-	// We have added an OnReject func in our cache, which gets called in case the block is not
-	// admitted to the cache. So, every block would be accounted for.
+
 	return b, nil
 }
 
@@ -215,38 +207,30 @@ func (it *tableIterator) Item() iterator.Item {
 func (it *tableIterator) Close() error {
 	return nil
 }
+
+// Seek
+// 二分法搜索 offsets
+// 如果idx == 0 说明key只能在第一个block中 block[0].MinKey <= key
+// 否则 block[0].MinKey > key 
+// 如果在 idx-1 的block中未找到key 那才可能在 idx 中
+// 如果都没有，则当前key不再此table
 func (it *tableIterator) Seek(key []byte) {
 	var ko pb.BlockOffset
 	idx := sort.Search(len(it.t.ss.Indexs().GetOffsets()), func(idx int) bool {
-		// Offsets should never return false since we're iterating within the OffsetsLength.
 		utils.CondPanic(!it.t.offsets(&ko, idx), fmt.Errorf("tableIterator.Seek idx < 0 || idx > len(index.GetOffsets()"))
 		return utils.CompareKeys(ko.GetKey(), key) > 0
 	})
 	if idx == 0 {
-		// The smallest key in our table is already strictly > key. We can return that.
-		// This is like a SeekToFirst.
 		it.seekHelper(0, key)
 		return
 	}
-
-	// block[idx].smallest is > key.
-	// Since idx>0, we know block[idx-1].smallest is <= key.
-	// There are two cases.
-	// 1) Everything in block[idx-1] is strictly < key. In this case, we should go to the first
-	//    element of block[idx].
-	// 2) Some element in block[idx-1] is >= key. We should go to that element.
 	it.seekHelper(idx-1, key)
 	if it.err == io.EOF {
-		// Case 1. Need to visit block[idx].
 		if idx == len(it.t.ss.Indexs().Offsets) {
-			// If idx == len(itr.t.blockIndex), then input key is greater than ANY element of table.
-			// There's nothing we can do. Valid() should return false as we seek to end of table.
 			return
 		}
-		// Since block[idx].smallest is > key. This is essentially a block[idx].SeekToFirst.
 		it.seekHelper(idx, key)
 	}
-	// Case 2: No need to do anything. We already did the seek in block[idx-1].
 }
 
 func (it *tableIterator) seekHelper(blockIdx int, key []byte) {

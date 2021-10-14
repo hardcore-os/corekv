@@ -15,7 +15,6 @@
 package file
 
 import (
-	"encoding/json"
 	"io"
 	"os"
 	"sync"
@@ -134,23 +133,6 @@ func (ss *SSTable) HasBloomFilter() bool {
 	return ss.hasBloomFilter
 }
 
-// LoadData 加载数据块
-func (ss *SSTable) LoadData() (blocks [][]byte, offsets []int) {
-	ss.lock.RLock()
-	fileData := ss.f.Slice(0)
-	ss.lock.RUnlock()
-	m := make(map[string]interface{}, 0)
-	json.Unmarshal(fileData, &m)
-	if data, ok := m["data"]; !ok {
-		panic("sst data is nil")
-	} else {
-		// TODO 所有的数据都放在一个 block中
-		dd := data.(string)
-		blocks = append(blocks, []byte(dd))
-		offsets = append(offsets, 0)
-	}
-	return blocks, offsets
-}
 func (ss *SSTable) read(off, sz int) ([]byte, error) {
 	if len(ss.f.Data) > 0 {
 		if len(ss.f.Data[off:]) < sz {
