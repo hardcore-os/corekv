@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"sort"
 	"sync"
-	"sync/atomic"
 
 	"github.com/hardcore-os/corekv/file"
-	"github.com/hardcore-os/corekv/iterator"
 	"github.com/hardcore-os/corekv/utils"
 	"github.com/hardcore-os/corekv/utils/codec"
 )
@@ -49,8 +47,6 @@ func (lh *levelHandler) Sort() {
 	lh.Lock()
 	defer lh.Unlock()
 	if lh.levelNum == 0 {
-		// Key range will overlap. Just sort by fileID in ascending order
-		// because newer tables are at the end of level 0.
 		sort.Slice(lh.tables, func(i, j int) bool {
 			return lh.tables[i].fid < lh.tables[j].fid
 		})
@@ -183,23 +179,6 @@ func (lm *levelManager) build() error {
 
 // 向L0层flush一个sstable
 func (lm *levelManager) flush(immutable *memTable) error {
-	// 分配一个fid
-	nextID := atomic.AddUint64(&lm.maxFid, 1)
-	sstName := utils.FileNameSSTable(lm.opt.WorkDir, nextID)
-
-	// 构建一个 builder
-	builder := newTableBuiler(lm.opt)
-	iter := immutable.sl.NewIterator(&iterator.Options{})
-	for iter.Rewind(); iter.Valid(); iter.Next() {
-		entry := iter.Item().Entry()
-		builder.add(entry)
-	}
-	// 创建一个 table 对象
-	table := openTable(lm, sstName, builder)
-	// 更新manifest文件
-	lm.levels[0].add(table)
-	return lm.manifestFile.AddTableMeta(0, &file.TableMeta{
-		ID:       nextID,
-		Checksum: []byte{'m', 'o', 'c', 'k'},
-	})
+	// TODO LAB
+	return nil
 }
