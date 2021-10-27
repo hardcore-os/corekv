@@ -5,9 +5,6 @@ import (
 	"math/rand"
 	"sync"
 	"time"
-
-	"github.com/hardcore-os/corekv/iterator"
-	"github.com/hardcore-os/corekv/utils/codec"
 )
 
 const (
@@ -31,7 +28,7 @@ type SkipListIterator struct {
 }
 
 // NewIterator 跳表迭代器
-func (sl *SkipList) NewIterator(opt *iterator.Options) iterator.Iterator {
+func (sl *SkipList) NewIterator(opt *Options) Iterator {
 	iter := &SkipListIterator{
 		it: sl.header,
 		sl: sl,
@@ -62,7 +59,7 @@ func (iter *SkipListIterator) Valid() bool {
 func (iter *SkipListIterator) Rewind() {
 	iter.it = iter.sl.header.levels[0]
 }
-func (iter *SkipListIterator) Item() iterator.Item {
+func (iter *SkipListIterator) Item() Item {
 	return iter.it
 }
 func (iter *SkipListIterator) Close() error {
@@ -74,11 +71,11 @@ func (iter *SkipListIterator) Seek(key []byte) {
 
 type Element struct {
 	levels []*Element
-	entry  *codec.Entry
+	entry  *Entry
 	score  float64
 }
 
-func newElement(score float64, entry *codec.Entry, level int) *Element {
+func newElement(score float64, entry *Entry, level int) *Element {
 	return &Element{
 		levels: make([]*Element, level),
 		entry:  entry,
@@ -86,11 +83,11 @@ func newElement(score float64, entry *codec.Entry, level int) *Element {
 	}
 }
 
-func (elem *Element) Entry() *codec.Entry {
+func (elem *Element) Entry() *Entry {
 	return elem.entry
 }
 
-func (list *SkipList) Add(data *codec.Entry) error {
+func (list *SkipList) Add(data *Entry) error {
 	list.lock.Lock()
 	defer list.lock.Unlock()
 	score := list.calcScore(data.Key)
@@ -144,7 +141,7 @@ func (list *SkipList) Add(data *codec.Entry) error {
 	return nil
 }
 
-func (list *SkipList) Search(key []byte) (e *codec.Entry) {
+func (list *SkipList) Search(key []byte) (e *Entry) {
 	list.lock.RLock()
 	defer list.lock.RUnlock()
 	if list.length == 0 {
@@ -280,7 +277,7 @@ type SkipListIter struct {
 	lock   sync.RWMutex
 }
 
-func (list *SkipList) NewSkipListIterator() iterator.Iterator {
+func (list *SkipList) NewSkipListIterator() Iterator {
 	return &SkipListIter{elem: list.header.levels[0], header: list.header}
 }
 
@@ -297,7 +294,7 @@ func (iter *SkipListIter) Valid() bool {
 func (iter *SkipListIter) Rewind() {
 	iter.elem = iter.header.levels[0]
 }
-func (iter *SkipListIter) Item() iterator.Item {
+func (iter *SkipListIter) Item() Item {
 	return iter.elem
 }
 func (iter *SkipListIter) Close() error {

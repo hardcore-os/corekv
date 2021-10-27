@@ -25,8 +25,8 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/hardcore-os/corekv/pb"
 	"github.com/hardcore-os/corekv/utils"
-	"github.com/hardcore-os/corekv/utils/codec/pb"
 	"github.com/pkg/errors"
 )
 

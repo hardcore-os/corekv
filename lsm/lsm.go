@@ -2,15 +2,16 @@ package lsm
 
 import (
 	"github.com/hardcore-os/corekv/utils"
-	"github.com/hardcore-os/corekv/utils/codec"
 )
 
+// LSM _
 type LSM struct {
 	memTable   *memTable
 	immutables []*memTable
 	levels     *levelManager
 	option     *Options
 	closer     *utils.Closer
+	maxMemFID  uint32
 }
 
 //Options _
@@ -24,7 +25,7 @@ type Options struct {
 	BloomFalsePositive float64
 }
 
-// 关闭lsm _
+// Close  _
 func (lsm *LSM) Close() error {
 	if lsm.memTable != nil {
 		if err := lsm.memTable.close(); err != nil {
@@ -44,11 +45,11 @@ func (lsm *LSM) Close() error {
 	return nil
 }
 
-// NewLSM
+// NewLSM _
 func NewLSM(opt *Options) *LSM {
 	lsm := &LSM{option: opt}
 	// 启动DB恢复过程加载wal，如果没有恢复内容则创建新的内存表
-	lsm.memTable, lsm.immutables = recovery(opt)
+	lsm.memTable, lsm.immutables = lsm.recovery()
 	// 初始化levelManager
 	lsm.levels = newLevelManager(opt)
 	// 初始化closer 用于资源回收的信号控制
@@ -56,7 +57,7 @@ func NewLSM(opt *Options) *LSM {
 	return lsm
 }
 
-// StartMerge
+// StartMerge _
 func (lsm *LSM) StartMerge() {
 	defer lsm.closer.Done()
 	for {
@@ -68,14 +69,13 @@ func (lsm *LSM) StartMerge() {
 	}
 }
 
-func (lsm *LSM) Set(entry *codec.Entry) (err error) {
+// Set _
+func (lsm *LSM) Set(entry *utils.Entry) (err error) {
 	// 检查当前memtable是否写满，是的话创建新的memtable,并将当前内存表写到immutables中
 	// 否则写入当前memtable中
 	if lsm.memTable.Size() > lsm.option.MemTableSize {
 		lsm.immutables = append(lsm.immutables, lsm.memTable)
-		if lsm.memTable, err = NewMemtable(); err != nil {
-			return err
-		}
+		lsm.memTable = lsm.NewMemtable()
 	}
 
 	if err := lsm.memTable.set(entry); err != nil {
@@ -94,9 +94,10 @@ func (lsm *LSM) Set(entry *codec.Entry) (err error) {
 	return nil
 }
 
-func (lsm *LSM) Get(key []byte) (*codec.Entry, error) {
+// Get _
+func (lsm *LSM) Get(key []byte) (*utils.Entry, error) {
 	var (
-		entry *codec.Entry
+		entry *utils.Entry
 		err   error
 	)
 	// 从内存表中查询,先查活跃表，在查不变表

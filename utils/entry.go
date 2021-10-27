@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package codec
+package utils
 
 import (
 	"encoding/binary"
@@ -23,6 +23,11 @@ type Entry struct {
 	Key       []byte
 	Value     []byte
 	ExpiresAt uint64
+
+	Version      uint64
+	Offset       uint32
+	Hlen         int // Length of the header.
+	ValThreshold int64
 }
 
 // EncodedSize is the size of the ValueStruct when encoded

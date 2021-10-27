@@ -24,10 +24,8 @@ import (
 	"strings"
 
 	"github.com/hardcore-os/corekv/file"
-	"github.com/hardcore-os/corekv/iterator"
+	"github.com/hardcore-os/corekv/pb"
 	"github.com/hardcore-os/corekv/utils"
-	"github.com/hardcore-os/corekv/utils/codec"
-	"github.com/hardcore-os/corekv/utils/codec/pb"
 	"github.com/pkg/errors"
 )
 
@@ -59,7 +57,7 @@ func openTable(lm *levelManager, tableName string, builder *tableBuilder) *table
 }
 
 // Serach 从table中查找key
-func (t *table) Serach(key []byte, maxVs *uint64) (entry *codec.Entry, err error) {
+func (t *table) Serach(key []byte, maxVs *uint64) (entry *utils.Entry, err error) {
 	// 获取索引
 	idx := t.ss.Indexs()
 	// 检查key是否存在
@@ -67,7 +65,7 @@ func (t *table) Serach(key []byte, maxVs *uint64) (entry *codec.Entry, err error
 	if t.ss.HasBloomFilter() && !bloomFilter.MayContainKey(key) {
 		return nil, utils.ErrKeyNotFound
 	}
-	iter := t.NewIterator(&iterator.Options{})
+	iter := t.NewIterator(&utils.Options{})
 	defer iter.Close()
 
 	iter.Seek(key)
@@ -75,8 +73,8 @@ func (t *table) Serach(key []byte, maxVs *uint64) (entry *codec.Entry, err error
 		return nil, utils.ErrKeyNotFound
 	}
 
-	if codec.SameKey(key, iter.Item().Entry().Key) {
-		if version := codec.ParseTs(iter.Item().Entry().Key); *maxVs < version {
+	if utils.SameKey(key, iter.Item().Entry().Key) {
+		if version := utils.ParseTs(iter.Item().Entry().Key); *maxVs < version {
 			*maxVs = version
 			return iter.Item().Entry(), nil
 		}
@@ -87,14 +85,14 @@ func (t *table) Serach(key []byte, maxVs *uint64) (entry *codec.Entry, err error
 func (t *table) indexKey() uint64 {
 	return t.fid
 }
-func (t *table) getEntry(key, block []byte, idx int) (entry *codec.Entry, err error) {
+func (t *table) getEntry(key, block []byte, idx int) (entry *utils.Entry, err error) {
 	if len(block) == 0 {
 		return nil, utils.ErrKeyNotFound
 	}
 	dataStr := string(block)
 	blocks := strings.Split(dataStr, ",")
 	if idx >= 0 && idx < len(blocks) {
-		return &codec.Entry{
+		return &utils.Entry{
 			Key:   key,
 			Value: []byte(blocks[idx]),
 		}, nil
@@ -130,23 +128,22 @@ func (t *table) block(idx int) (*block, error) {
 	}
 
 	readPos := len(b.data) - 4 // First read checksum length.
-	b.chkLen = int(codec.BytesToU32(b.data[readPos : readPos+4]))
+	b.chkLen = int(utils.BytesToU32(b.data[readPos : readPos+4]))
 
 	if b.chkLen > len(b.data) {
 		return nil, errors.New("invalid checksum length. Either the data is " +
 			"corrupted or the table options are incorrectly set")
 	}
 
-
 	readPos -= b.chkLen
 	b.checksum = b.data[readPos : readPos+b.chkLen]
-	
+
 	readPos -= 4
-	numEntries := int(codec.BytesToU32(b.data[readPos : readPos+4]))
+	numEntries := int(utils.BytesToU32(b.data[readPos : readPos+4]))
 	entriesIndexStart := readPos - (numEntries * 4)
 	entriesIndexEnd := entriesIndexStart + numEntries*4
 
-	b.entryOffsets = codec.BytesToU32Slice(b.data[entriesIndexStart:entriesIndexEnd])
+	b.entryOffsets = utils.BytesToU32Slice(b.data[entriesIndexStart:entriesIndexEnd])
 
 	b.entriesIndexStart = entriesIndexStart
 
@@ -155,7 +152,6 @@ func (t *table) block(idx int) (*block, error) {
 	if err = b.verifyCheckSum(); err != nil {
 		return nil, err
 	}
-
 
 	t.lm.cache.blocks.Set(key, b)
 
@@ -179,15 +175,15 @@ func (t *table) blockCacheKey(idx int) []byte {
 }
 
 type tableIterator struct {
-	it       iterator.Item
-	opt      *iterator.Options
+	it       utils.Item
+	opt      *utils.Options
 	t        *table
 	blockPos int
 	bi       *blockIterator
 	err      error
 }
 
-func (t *table) NewIterator(options *iterator.Options) iterator.Iterator {
+func (t *table) NewIterator(options *utils.Options) utils.Iterator {
 	return &tableIterator{
 		opt: options,
 		t:   t,
@@ -201,7 +197,7 @@ func (it *tableIterator) Valid() bool {
 }
 func (it *tableIterator) Rewind() {
 }
-func (it *tableIterator) Item() iterator.Item {
+func (it *tableIterator) Item() utils.Item {
 	return it.it
 }
 func (it *tableIterator) Close() error {
@@ -211,13 +207,13 @@ func (it *tableIterator) Close() error {
 // Seek
 // 二分法搜索 offsets
 // 如果idx == 0 说明key只能在第一个block中 block[0].MinKey <= key
-// 否则 block[0].MinKey > key 
+// 否则 block[0].MinKey > key
 // 如果在 idx-1 的block中未找到key 那才可能在 idx 中
 // 如果都没有，则当前key不再此table
 func (it *tableIterator) Seek(key []byte) {
 	var ko pb.BlockOffset
 	idx := sort.Search(len(it.t.ss.Indexs().GetOffsets()), func(idx int) bool {
-		utils.CondPanic(!it.t.offsets(&ko, idx), fmt.Errorf("tableIterator.Seek idx < 0 || idx > len(index.GetOffsets()"))
+		utils.CondPanic(!it.t.offsets(&ko, idx), fmt.Errorf("tableutils.Seek idx < 0 || idx > len(index.GetOffsets()"))
 		return utils.CompareKeys(ko.GetKey(), key) > 0
 	})
 	if idx == 0 {

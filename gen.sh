@@ -12,6 +12,6 @@
  # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  # See the License for the specific language governing permissions and
  # limitations under the License.
-protoDir="utils/codec/pb"
-outDir="utils/codec/pb"
+protoDir="pb"
+outDir="pb"
 protoc -I ${protoDir}/  ${protoDir}/pb.proto --gofast_out=plugins=grpc:${outDir}
