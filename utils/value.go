@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package codec
+package utils
 
 import (
 	"encoding/binary"
@@ -20,7 +20,18 @@ import (
 	"unsafe"
 )
 
+const (
+	// size of vlog header.
+	// +----------------+------------------+
+	// | keyID(8 bytes) |  baseIV(12 bytes)|
+	// +----------------+------------------+
+	ValueLogHeaderSize = 20
+)
+
 type ValuePtr struct {
+	Len    uint32
+	Offset uint32
+	Fid    uint32
 }
 
 // NewValuePtr
@@ -86,4 +97,9 @@ func BytesToU32Slice(b []byte) []uint32 {
 	hdr.Cap = hdr.Len
 	hdr.Data = uintptr(unsafe.Pointer(&b[0]))
 	return u32s
+}
+
+// ValuePtrCodec _
+func ValuePtrCodec(vp *ValuePtr) []byte {
+	return []byte{}
 }

@@ -23,10 +23,8 @@ import (
 	"unsafe"
 
 	"github.com/hardcore-os/corekv/file"
-	"github.com/hardcore-os/corekv/iterator"
+	"github.com/hardcore-os/corekv/pb"
 	"github.com/hardcore-os/corekv/utils"
-	"github.com/hardcore-os/corekv/utils/codec"
-	"github.com/hardcore-os/corekv/utils/codec/pb"
 )
 
 type tableBuilder struct {
@@ -73,7 +71,7 @@ func (h header) encode() []byte {
 	return b[:]
 }
 
-func (tb *tableBuilder) add(e *codec.Entry) {
+func (tb *tableBuilder) add(e *utils.Entry) {
 	key := e.Key
 	// 检查是否需要分配一个新的 block
 	if tb.tryFinishBlock(e) {
@@ -83,9 +81,9 @@ func (tb *tableBuilder) add(e *codec.Entry) {
 			data: make([]byte, tb.opt.BlockSize), // TODO 加密block后块的大小会增加，需要预留一些填充位置
 		}
 	}
-	tb.keyHashes = append(tb.keyHashes, utils.Hash(codec.ParseKey(key)))
+	tb.keyHashes = append(tb.keyHashes, utils.Hash(utils.ParseKey(key)))
 
-	if version := codec.ParseTs(key); version > tb.maxVersion {
+	if version := utils.ParseTs(key); version > tb.maxVersion {
 		tb.maxVersion = version
 	}
 
@@ -119,7 +117,7 @@ func newTableBuiler(opt *Options) *tableBuilder {
 	}
 }
 
-func (tb *tableBuilder) tryFinishBlock(e *codec.Entry) bool {
+func (tb *tableBuilder) tryFinishBlock(e *utils.Entry) bool {
 	if tb.curBlock == nil {
 		return true
 	}
@@ -146,14 +144,14 @@ func (tb *tableBuilder) finishBlock() {
 		return
 	}
 	// Append the entryOffsets and its length.
-	tb.append(codec.U32SliceToBytes(tb.curBlock.entryOffsets))
-	tb.append(codec.U32ToBytes(uint32(len(tb.curBlock.entryOffsets))))
+	tb.append(utils.U32SliceToBytes(tb.curBlock.entryOffsets))
+	tb.append(utils.U32ToBytes(uint32(len(tb.curBlock.entryOffsets))))
 
 	checksum := tb.calculateChecksum(tb.curBlock.data[:tb.curBlock.end])
 
 	// Append the block checksum and its length.
 	tb.append(checksum)
-	tb.append(codec.U32ToBytes(uint32(len(checksum))))
+	tb.append(utils.U32ToBytes(uint32(len(checksum))))
 
 	tb.blockList = append(tb.blockList, tb.curBlock)
 
@@ -185,7 +183,7 @@ func (tb *tableBuilder) allocate(need int) []byte {
 
 func (tb *tableBuilder) calculateChecksum(data []byte) []byte {
 	checkSum := utils.CalculateChecksum(data)
-	return codec.U64ToBytes(checkSum)
+	return utils.U64ToBytes(checkSum)
 }
 
 func (tb *tableBuilder) keyDiff(newKey []byte) []byte {
@@ -218,10 +216,10 @@ func (bd *buildData) Copy(dst []byte) int {
 		written += copy(dst[written:], bl.data[:bl.end])
 	}
 	written += copy(dst[written:], bd.index)
-	written += copy(dst[written:], codec.U32ToBytes(uint32(len(bd.index))))
+	written += copy(dst[written:], utils.U32ToBytes(uint32(len(bd.index))))
 
 	written += copy(dst[written:], bd.checksum)
-	written += copy(dst[written:], codec.U32ToBytes(uint32(len(bd.checksum))))
+	written += copy(dst[written:], utils.U32ToBytes(uint32(len(bd.checksum))))
 	return written
 }
 
@@ -303,7 +301,7 @@ type blockIterator struct {
 
 	prevOverlap uint16
 
-	it iterator.Item
+	it utils.Item
 }
 
 func (itr *blockIterator) setBlock(b *block) {
@@ -382,7 +380,7 @@ func (itr *blockIterator) setIdx(i int) {
 	valueOff := headerSize + h.diff
 	diffKey := entryData[headerSize:valueOff]
 	itr.key = append(itr.key[:h.overlap], diffKey...)
-	e := codec.NewEntry(itr.key, nil)
+	e := utils.NewEntry(itr.key, nil)
 	e.DecodeEntry(entryData[valueOff:])
 	itr.it = &Item{e: e}
 }
@@ -402,7 +400,7 @@ func (itr *blockIterator) Rewind() bool {
 	itr.setIdx(0)
 	return true
 }
-func (itr *blockIterator) Item() iterator.Item {
+func (itr *blockIterator) Item() utils.Item {
 	return itr.it
 }
 func (itr *blockIterator) Close() error {

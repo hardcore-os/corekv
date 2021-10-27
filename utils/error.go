@@ -57,6 +57,9 @@ var (
 	ErrBadChecksum = errors.New("bad check sum")
 	// ErrChecksumMismatch is returned at checksum mismatch.
 	ErrChecksumMismatch = errors.New("checksum mismatch")
+
+	ErrTruncate = errors.New("Do truncate")
+	ErrStop     = errors.New("Stop")
 )
 
 // Panic 如果err 不为nil 则panic
@@ -64,6 +67,11 @@ func Panic(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+// Panic2 _
+func Panic2(_ interface{}, err error) {
+	Panic(err)
 }
 
 // Err err

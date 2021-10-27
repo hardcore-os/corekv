@@ -7,9 +7,7 @@ import (
 	"sync/atomic"
 
 	"github.com/hardcore-os/corekv/file"
-	"github.com/hardcore-os/corekv/iterator"
 	"github.com/hardcore-os/corekv/utils"
-	"github.com/hardcore-os/corekv/utils/codec"
 )
 
 type levelManager struct {
@@ -33,7 +31,7 @@ func (lh *levelHandler) add(t *table) {
 	lh.tables = append(lh.tables, t)
 }
 
-func (lh *levelHandler) Get(key []byte) (*codec.Entry, error) {
+func (lh *levelHandler) Get(key []byte) (*utils.Entry, error) {
 	// 如果是第0层文件则进行特殊处理
 	if lh.levelNum == 0 {
 		// TODO：logic...
@@ -62,7 +60,7 @@ func (lh *levelHandler) Sort() {
 	}
 }
 
-func (lh *levelHandler) searchL0SST(key []byte) (*codec.Entry, error) {
+func (lh *levelHandler) searchL0SST(key []byte) (*utils.Entry, error) {
 	var version uint64
 	for _, table := range lh.tables {
 		if entry, err := table.Serach(key, &version); err == nil {
@@ -71,7 +69,7 @@ func (lh *levelHandler) searchL0SST(key []byte) (*codec.Entry, error) {
 	}
 	return nil, utils.ErrKeyNotFound
 }
-func (lh *levelHandler) searchLNSST(key []byte) (*codec.Entry, error) {
+func (lh *levelHandler) searchLNSST(key []byte) (*utils.Entry, error) {
 	table := lh.getTable(key)
 	var version uint64
 	if table == nil {
@@ -106,9 +104,9 @@ func (lm *levelManager) close() error {
 	return nil
 }
 
-func (lm *levelManager) Get(key []byte) (*codec.Entry, error) {
+func (lm *levelManager) Get(key []byte) (*utils.Entry, error) {
 	var (
-		entry *codec.Entry
+		entry *utils.Entry
 		err   error
 	)
 	// L0层查询
@@ -183,13 +181,14 @@ func (lm *levelManager) build() error {
 
 // 向L0层flush一个sstable
 func (lm *levelManager) flush(immutable *memTable) error {
+	defer immutable.close()
 	// 分配一个fid
 	nextID := atomic.AddUint64(&lm.maxFid, 1)
 	sstName := utils.FileNameSSTable(lm.opt.WorkDir, nextID)
 
 	// 构建一个 builder
 	builder := newTableBuiler(lm.opt)
-	iter := immutable.sl.NewIterator(&iterator.Options{})
+	iter := immutable.sl.NewIterator(&utils.Options{})
 	for iter.Rewind(); iter.Valid(); iter.Next() {
 		entry := iter.Item().Entry()
 		builder.add(entry)

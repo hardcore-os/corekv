@@ -1,4 +1,4 @@
-// Copyright 2021 logicrec Project Authors
+// Copyright 2021 hardcore-os Project Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License")
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package iterator
+package utils
 
-import "github.com/hardcore-os/corekv/utils/codec"
-
-// 迭代器
+// Iterator 迭代器
 type Iterator interface {
 	Next()
 	Valid() bool
@@ -25,9 +23,13 @@ type Iterator interface {
 	Close() error
 	Seek(key []byte)
 }
+
+// Item _
 type Item interface {
-	Entry() *codec.Entry
+	Entry() *Entry
 }
+
+// Options _
 type Options struct {
 	Prefix []byte
 	IsAsc  bool

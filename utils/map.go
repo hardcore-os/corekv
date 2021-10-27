@@ -18,7 +18,6 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/hardcore-os/corekv/utils/codec"
 	"github.com/pkg/errors"
 )
 
@@ -55,11 +54,11 @@ func (c *CoreMap) keyToHash(key interface{}) uint64 {
 	}
 	switch k := key.(type) {
 	case []byte:
-		return codec.MemHash(k)
+		return MemHash(k)
 	case uint32:
 		return uint64(k)
 	case string:
-		return codec.MemHashString(k)
+		return MemHashString(k)
 	case uint64:
 		return k
 	case byte:

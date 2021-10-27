@@ -15,24 +15,43 @@
 package lsm
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+	"sync/atomic"
 
 	"github.com/hardcore-os/corekv/file"
 	"github.com/hardcore-os/corekv/utils"
-	"github.com/hardcore-os/corekv/utils/codec"
+	"github.com/pkg/errors"
 )
+
+const memFileExt string = ".wal"
 
 // MemTable
 type memTable struct {
-	wal *file.WalFile
-	sl  *utils.SkipList
+	lsm        *LSM
+	wal        *file.WalFile
+	sl         *utils.SkipList
+	buf        *bytes.Buffer
+	maxVersion uint64
 }
 
-//todo: mock, need to add real logic
-func NewMemtable() (*memTable, error) {
-
-	return nil, nil
+// NewMemtable _
+func (lsm *LSM) NewMemtable() *memTable {
+	fid := atomic.AddUint32(&lsm.maxMemFID, 1)
+	fileOpt := &file.Options{
+		Dir:      lsm.option.WorkDir,
+		Flag:     os.O_CREATE | os.O_RDWR,
+		MaxSz:    int(lsm.option.MemTableSize), //TODO wal 要设置多大比较合理？ 姑且跟sst一样大
+		FID:      fid,
+		FileName: mtFilePath(lsm.option.WorkDir, fid),
+	}
+	return &memTable{wal: file.OpenWalFile(fileOpt), sl: utils.NewSkipList(), lsm: lsm}
 }
 
 // Close
@@ -46,7 +65,7 @@ func (m *memTable) close() error {
 	return nil
 }
 
-func (m *memTable) set(entry *codec.Entry) error {
+func (m *memTable) set(entry *utils.Entry) error {
 	// 写到wal 日志中，防止崩溃
 	if err := m.wal.Write(entry); err != nil {
 		return err
@@ -58,7 +77,7 @@ func (m *memTable) set(entry *codec.Entry) error {
 	return nil
 }
 
-func (m *memTable) Get(key []byte) (*codec.Entry, error) {
+func (m *memTable) Get(key []byte) (*utils.Entry, error) {
 	// 索引检查当前的key是否在表中 O(1) 的时间复杂度
 	// 从内存表中获取数据
 	return m.sl.Search(key), nil
@@ -69,13 +88,92 @@ func (m *memTable) Size() int64 {
 }
 
 //recovery
-func recovery(opt *Options) (*memTable, []*memTable) {
-	// TODO 这里需要实现获取mem list
-	fileOpt := &file.Options{
-		Dir:      opt.WorkDir,
-		FileName: fmt.Sprintf("%s/%s", opt.WorkDir, "00001.mem"),
-		Flag:     os.O_CREATE | os.O_RDWR,
-		MaxSz:    int(opt.SSTableMaxSz), //TODO wal 要设置多大比较合理？ 姑且跟sst一样大
+func (lsm *LSM) recovery() (*memTable, []*memTable) {
+	// 从 工作目录中获取所有文件
+	files, err := ioutil.ReadDir(lsm.option.WorkDir)
+	if err != nil {
+		utils.Panic(err)
+		return nil, nil
 	}
-	return &memTable{wal: file.OpenWalFile(fileOpt), sl: utils.NewSkipList()}, []*memTable{}
+	var fids []int
+	// 识别 后缀为.mem的文件
+	for _, file := range files {
+		if !strings.HasSuffix(file.Name(), memFileExt) {
+			continue
+		}
+		fsz := len(file.Name())
+		fid, err := strconv.ParseInt(file.Name()[:fsz-len(memFileExt)], 10, 64)
+		if err != nil {
+			utils.Panic(err)
+			return nil, nil
+		}
+		fids = append(fids, int(fid))
+	}
+	// 排序一下子
+	sort.Slice(fids, func(i, j int) bool {
+		return fids[i] < fids[j]
+	})
+	if len(fids) != 0 {
+		atomic.StoreUint32(&lsm.maxMemFID, uint32(fids[len(fids)-1]))
+	}
+	imms := []*memTable{}
+	// 遍历fid 做处理
+	for _, fid := range fids {
+		mt, err := lsm.openMemTable(uint32(fid))
+		utils.CondPanic(err != nil, err)
+		if mt.sl.Size() == 0 {
+			// mt.DecrRef()
+			continue
+		}
+		// TODO 如果最后一个跳表没写满会怎么样？这不就浪费空间了吗
+		imms = append(imms, mt)
+	}
+	return lsm.NewMemtable(), imms
+}
+
+func (lsm *LSM) openMemTable(fid uint32) (*memTable, error) {
+	fileOpt := &file.Options{
+		Dir:      lsm.option.WorkDir,
+		Flag:     os.O_CREATE | os.O_RDWR,
+		MaxSz:    int(lsm.option.MemTableSize),
+		FID:      fid,
+		FileName: mtFilePath(lsm.option.WorkDir, fid),
+	}
+	s := utils.NewSkipList()
+	mt := &memTable{
+		sl:  s,
+		buf: &bytes.Buffer{},
+		lsm: lsm,
+	}
+	mt.wal = file.OpenWalFile(fileOpt)
+	err := mt.UpdateSkipList()
+	utils.CondPanic(err != nil, errors.WithMessage(err, "while updating skiplist"))
+	return mt, nil
+}
+func mtFilePath(dir string, fid uint32) string {
+	return filepath.Join(dir, fmt.Sprintf("%05d%s", fid, memFileExt))
+}
+
+func (m *memTable) UpdateSkipList() error {
+	if m.wal == nil || m.sl == nil {
+		return nil
+	}
+	endOff, err := m.wal.Iterate(true, 0, m.replayFunction(m.lsm.option))
+	if err != nil {
+		return errors.WithMessage(err, fmt.Sprintf("while iterating wal: %s", m.wal.Name()))
+	}
+	// if endOff < m.wal.Size() {
+	// 	return errors.WithMessage(utils.ErrTruncate, fmt.Sprintf("end offset: %d < size: %d", endOff, m.wal.Size()))
+	// }
+	return m.wal.Truncate(int64(endOff))
+}
+
+func (m *memTable) replayFunction(opt *Options) func(*utils.Entry, *utils.ValuePtr) error {
+	return func(e *utils.Entry, _ *utils.ValuePtr) error { // Function for replaying.
+		if ts := utils.ParseTs(e.Key); ts > m.maxVersion {
+			m.maxVersion = ts
+		}
+		m.sl.Add(e)
+		return nil
+	}
 }

@@ -20,9 +20,8 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/hardcore-os/corekv/pb"
 	"github.com/hardcore-os/corekv/utils"
-	"github.com/hardcore-os/corekv/utils/codec"
-	"github.com/hardcore-os/corekv/utils/codec/pb"
 	"github.com/pkg/errors"
 )
 
@@ -74,7 +73,7 @@ func (ss *SSTable) initTable() (bo *pb.BlockOffset, err error) {
 	// Read checksum len from the last 4 bytes.
 	readPos -= 4
 	buf := ss.readCheckError(readPos, 4)
-	checksumLen := int(codec.BytesToU32(buf))
+	checksumLen := int(utils.BytesToU32(buf))
 	if checksumLen < 0 {
 		return nil, errors.New("checksum length less than zero. Data corrupted")
 	}
@@ -86,7 +85,7 @@ func (ss *SSTable) initTable() (bo *pb.BlockOffset, err error) {
 	// Read index size from the footer.
 	readPos -= 4
 	buf = ss.readCheckError(readPos, 4)
-	ss.idxLen = int(codec.BytesToU32(buf))
+	ss.idxLen = int(utils.BytesToU32(buf))
 
 	// Read index.
 	readPos -= ss.idxLen
