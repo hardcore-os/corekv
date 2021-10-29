@@ -168,7 +168,7 @@ func (list *SkipList) Search(key []byte) (e *codec.Entry) {
 		}
 
 		topLevel := prevElem.levels[i]
-		//
+		// 保存这一层的搜索到的节点，如果下一层的下个节点和这一层的下个节点一样，那么继续到下一层。
 		for i--; i >= 0 && prevElem.levels[i] == topLevel; i-- {
 			prevElemHeaders[i] = prevElem
 		}
@@ -262,8 +262,8 @@ func (list *SkipList) randLevel() int {
 	}
 	i := 1
 	// 使用redis的算法，层数越高，生成高层数的概率越小
-	for ;;{
-		if (rand.Intn(32767) & 0xFFFF) < int(math.Round(defaultSkipListP * 0xFFFF)) {
+	for {
+		if (rand.Intn(32767) & 0xFFFF) < int(math.Round(defaultSkipListP*0xFFFF)) {
 			i += 1
 		}
 		break
