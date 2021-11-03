@@ -180,8 +180,7 @@ func (lm *levelManager) build() error {
 }
 
 // 向L0层flush一个sstable
-func (lm *levelManager) flush(immutable *memTable) error {
-	defer immutable.close()
+func (lm *levelManager) flush(immutable *memTable) (err error) {
 	// 分配一个fid
 	nextID := atomic.AddUint64(&lm.maxFid, 1)
 	sstName := utils.FileNameSSTable(lm.opt.WorkDir, nextID)
@@ -197,8 +196,13 @@ func (lm *levelManager) flush(immutable *memTable) error {
 	table := openTable(lm, sstName, builder)
 	// 更新manifest文件
 	lm.levels[0].add(table)
-	return lm.manifestFile.AddTableMeta(0, &file.TableMeta{
+	err = lm.manifestFile.AddTableMeta(0, &file.TableMeta{
 		ID:       nextID,
 		Checksum: []byte{'m', 'o', 'c', 'k'},
 	})
+	// manifest写入失败直接panic
+	utils.CondPanic(err != nil, err)
+	// 只有完全正确的flush了文件，才能关闭immutable，保证wal文件的存在，才能恢复数据
+	immutable.close()
+	return
 }
