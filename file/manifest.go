@@ -33,22 +33,25 @@ import (
 // ManifestFile 维护sst文件元信息的文件
 // manifest 比较特殊，不能使用mmap，需要保证实时的写入
 type ManifestFile struct {
-	opt      *Options
-	f        *os.File
-	lock     sync.Mutex
-	manifest *Manifest
+	opt                       *Options
+	f                         *os.File
+	lock                      sync.Mutex
+	deletionsRewriteThreshold int
+	manifest                  *Manifest
 }
 
 // Manifest corekv 元数据状态维护
 type Manifest struct {
-	Levels []levelManifest
-	Tables map[uint64]TableManifest
+	Levels    []levelManifest
+	Tables    map[uint64]TableManifest
+	Creations int
+	Deletions int
 }
 
 // TableManifest 包含sst的基本信息
 type TableManifest struct {
 	Level    uint8
-	Checksum []byte
+	Checksum []byte // 方便今后扩展
 }
 type levelManifest struct {
 	Tables map[uint64]struct{} // Set of table id's
@@ -77,6 +80,7 @@ func OpenManifestFile(opt *Options) (*ManifestFile, error) {
 			return mf, err
 		}
 		mf.f = fp
+		f = fp
 		mf.manifest = m
 		return mf, nil
 	}
@@ -179,6 +183,7 @@ func applyManifestChange(build *Manifest, tc *pb.ManifestChange) error {
 			build.Levels = append(build.Levels, levelManifest{make(map[uint64]struct{})})
 		}
 		build.Levels[tc.Level].Tables[tc.Id] = struct{}{}
+		build.Creations++
 	case pb.ManifestChange_DELETE:
 		tm, ok := build.Tables[tc.Id]
 		if !ok {
@@ -186,6 +191,7 @@ func applyManifestChange(build *Manifest, tc *pb.ManifestChange) error {
 		}
 		delete(build.Levels[tm.Level].Tables, tc.Id)
 		delete(build.Tables, tc.Id)
+		build.Deletions++
 	default:
 		return fmt.Errorf("MANIFEST file has invalid manifestChange op")
 	}
@@ -235,10 +241,12 @@ func (mf *ManifestFile) rewrite() error {
 	if err := mf.f.Close(); err != nil {
 		return err
 	}
-	fp, _, err := helpRewrite(mf.opt.Dir, mf.manifest)
+	fp, nextCreations, err := helpRewrite(mf.opt.Dir, mf.manifest)
 	if err != nil {
 		return err
 	}
+	mf.manifest.Creations = nextCreations
+	mf.manifest.Deletions = 0
 	mf.f = fp
 	return nil
 }
@@ -316,14 +324,15 @@ func (mf *ManifestFile) addChanges(changesParam []*pb.ManifestChange) error {
 		return err
 	}
 
-	// Maybe we could use O_APPEND instead (on certain file systems)
+	// TODO 锁粒度可以优化
 	mf.lock.Lock()
 	defer mf.lock.Unlock()
 	if err := applyChangeSet(mf.manifest, &changes); err != nil {
 		return err
 	}
 	// Rewrite manifest if it'd shrink by 1/10 and it's big enough to care
-	if false {
+	if mf.manifest.Deletions > utils.ManifestDeletionsRewriteThreshold &&
+		mf.manifest.Deletions > utils.ManifestDeletionsRatio*(mf.manifest.Creations-mf.manifest.Deletions) {
 		if err := mf.rewrite(); err != nil {
 			return err
 		}

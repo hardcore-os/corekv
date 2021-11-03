@@ -28,10 +28,12 @@ const (
 
 // file
 const (
-	ManifestFilename        = "MANIFEST"
-	ManifestRewriteFilename = "REWRITEMANIFEST"
-	DefaultFileFlag         = os.O_RDWR | os.O_CREATE | os.O_APPEND
-	DefaultFileMode         = 0666
+	ManifestFilename                  = "MANIFEST"
+	ManifestRewriteFilename           = "REWRITEMANIFEST"
+	ManifestDeletionsRewriteThreshold = 10000
+	ManifestDeletionsRatio            = 10
+	DefaultFileFlag                   = os.O_RDWR | os.O_CREATE | os.O_APPEND
+	DefaultFileMode                   = 0666
 )
 
 // codec

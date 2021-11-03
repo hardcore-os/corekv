@@ -67,7 +67,7 @@ func TestLSM(t *testing.T) {
 			lsm.Set(entry)
 		}
 		// 强制recovery 相当于数据库重启，工作目录中wal文件不会清空
-		
+
 		imm, imms := lsm.recovery()
 		assert.NotEmpty(t, imm)
 		assert.Equal(t, len(imms) != 0, true)
@@ -77,7 +77,7 @@ func TestLSM(t *testing.T) {
 		}
 	}
 	// 运行N次测试多个sst的影响
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 2; i++ {
 		levelLive()
 	}
 }
