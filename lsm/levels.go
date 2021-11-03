@@ -2,6 +2,7 @@ package lsm
 
 import (
 	"bytes"
+
 	"sort"
 	"sync"
 	"sync/atomic"
