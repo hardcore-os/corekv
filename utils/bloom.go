@@ -54,18 +54,18 @@ func (f Filter) MayContain(h uint32) bool {
 // A good bitsPerKey value is 10, which yields a filter with ~ 1% false
 // positive rate.
 func NewFilter(keys []uint32, bitsPerKey int) Filter {
-	return Filter(appendFilter(nil, keys, bitsPerKey))
+	return Filter(appendFilter(keys, bitsPerKey))
 }
 
 // BloomBitsPerKey returns the bits per key required by bloomfilter based on
 // the false positive rate.
 func BloomBitsPerKey(numEntries int, fp float64) int {
 	size := -1 * float64(numEntries) * math.Log(fp) / math.Pow(float64(0.69314718056), 2)
-	locs := math.Ceil(float64(0.69314718056) * size / float64(numEntries))
+	locs := math.Ceil(size / float64(numEntries))
 	return int(locs)
 }
 
-func appendFilter(buf []byte, keys []uint32, bitsPerKey int) []byte {
+func appendFilter(keys []uint32, bitsPerKey int) []byte {
 	if bitsPerKey < 0 {
 		bitsPerKey = 0
 	}
@@ -86,7 +86,7 @@ func appendFilter(buf []byte, keys []uint32, bitsPerKey int) []byte {
 	}
 	nBytes := (nBits + 7) / 8
 	nBits = nBytes * 8
-	buf, filter := extend(buf, nBytes+1)
+	filter := make([]byte, nBytes+1)
 
 	for _, h := range keys {
 		delta := h>>17 | h<<15
@@ -96,32 +96,11 @@ func appendFilter(buf []byte, keys []uint32, bitsPerKey int) []byte {
 			h += delta
 		}
 	}
+
+	//record the K value of this Bloom Filter
 	filter[nBytes] = uint8(k)
 
-	return buf
-}
-
-// extend appends n zero bytes to b. It returns the overall slice (of length
-// n+len(originalB)) and the slice of n trailing zeroes.
-func extend(b []byte, n int) (overall, trailer []byte) {
-	want := n + len(b)
-	if want <= cap(b) {
-		overall = b[:want]
-		trailer = overall[len(b):]
-		for i := range trailer {
-			trailer[i] = 0
-		}
-	} else {
-		// Grow the capacity exponentially, with a 1KiB minimum.
-		c := 1024
-		for c < want {
-			c += c / 4
-		}
-		overall = make([]byte, want, c)
-		trailer = overall[len(b):]
-		copy(overall, b)
-	}
-	return overall, trailer
+	return filter
 }
 
 // Hash implements a hashing algorithm similar to the Murmur hash.
