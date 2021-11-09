@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -9,6 +10,7 @@ import (
 
 const (
 	defaultMaxLevel = 48
+	defaultSkipListP = 0.25
 )
 
 type SkipList struct {
@@ -153,12 +155,15 @@ func (list *SkipList) Search(key []byte) (e *Entry) {
 	prevElem := list.header
 	i := len(list.header.levels) - 1
 
+	var prevElemHeaders [defaultMaxLevel]*Element
 	for i >= 0 {
+		prevElemHeaders[i] = prevElem
 		for next := prevElem.levels[i]; next != nil; next = prevElem.levels[i] {
 			if comp := list.compare(score, key, next); comp <= 0 {
 				if comp == 0 {
 					return next.Entry()
 				}
+				// key小于nextkey，证明在这一层没找到，跳出这个循环
 				break
 			}
 
@@ -166,9 +171,9 @@ func (list *SkipList) Search(key []byte) (e *Entry) {
 		}
 
 		topLevel := prevElem.levels[i]
-
+		// 保存这一层的搜索到的节点，如果下一层的下个节点和这一层的下个节点一样，那么继续到下一层。
 		for i--; i >= 0 && prevElem.levels[i] == topLevel; i-- {
-
+			prevElemHeaders[i] = prevElem
 		}
 	}
 	return
@@ -259,10 +264,12 @@ func (list *SkipList) randLevel() int {
 		return 1
 	}
 	i := 1
-	for ; i < list.maxLevel; i++ {
-		if RandN(1000)%2 == 0 {
-			return i
+	// 使用redis的算法，层数越高，生成高层数的概率越小
+	for {
+		if (rand.Intn(32767) & 0xFFFF) < int(math.Round(defaultSkipListP*0xFFFF)) {
+			i += 1
 		}
+		break
 	}
 	return i
 }
