@@ -17,12 +17,8 @@ package lsm
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sort"
-	"strconv"
-	"strings"
 	"sync/atomic"
 
 	"github.com/hardcore-os/corekv/file"
@@ -89,46 +85,8 @@ func (m *memTable) Size() int64 {
 
 //recovery
 func (lsm *LSM) recovery() (*memTable, []*memTable) {
-	// 从 工作目录中获取所有文件
-	files, err := ioutil.ReadDir(lsm.option.WorkDir)
-	if err != nil {
-		utils.Panic(err)
-		return nil, nil
-	}
-	var fids []int
-	// 识别 后缀为.wal的文件
-	for _, file := range files {
-		if !strings.HasSuffix(file.Name(), walFileExt) {
-			continue
-		}
-		fsz := len(file.Name())
-		fid, err := strconv.ParseInt(file.Name()[:fsz-len(walFileExt)], 10, 64)
-		if err != nil {
-			utils.Panic(err)
-			return nil, nil
-		}
-		fids = append(fids, int(fid))
-	}
-	// 排序一下子
-	sort.Slice(fids, func(i, j int) bool {
-		return fids[i] < fids[j]
-	})
-	if len(fids) != 0 {
-		atomic.StoreUint32(&lsm.maxMemFID, uint32(fids[len(fids)-1]))
-	}
-	imms := []*memTable{}
-	// 遍历fid 做处理
-	for _, fid := range fids {
-		mt, err := lsm.openMemTable(uint32(fid))
-		utils.CondPanic(err != nil, err)
-		if mt.sl.Size() == 0 {
-			// mt.DecrRef()
-			continue
-		}
-		// TODO 如果最后一个跳表没写满会怎么样？这不就浪费空间了吗
-		imms = append(imms, mt)
-	}
-	return lsm.NewMemtable(), imms
+	// LAB Recvery
+	return lsm.NewMemtable(), nil
 }
 
 func (lsm *LSM) openMemTable(fid uint32) (*memTable, error) {
