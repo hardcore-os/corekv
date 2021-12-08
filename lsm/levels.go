@@ -187,7 +187,7 @@ func (lm *levelManager) flush(immutable *memTable) (err error) {
 
 	// 构建一个 builder
 	builder := newTableBuiler(lm.opt)
-	iter := immutable.sl.NewIterator(&utils.Options{})
+	iter := immutable.sl.NewSkipListIterator()
 	for iter.Rewind(); iter.Valid(); iter.Next() {
 		entry := iter.Item().Entry()
 		builder.add(entry)

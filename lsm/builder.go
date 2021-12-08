@@ -73,6 +73,7 @@ func (h header) encode() []byte {
 
 func (tb *tableBuilder) add(e *utils.Entry) {
 	key := e.Key
+	val := utils.ValueStruct{Value: e.Value}
 	// 检查是否需要分配一个新的 block
 	if tb.tryFinishBlock(e) {
 		tb.finishBlock()
@@ -107,8 +108,8 @@ func (tb *tableBuilder) add(e *utils.Entry) {
 	tb.append(h.encode())
 	tb.append(diffKey)
 
-	dst := tb.allocate(int(e.EncodedSize()))
-	e.EncodeEntry(dst)
+	dst := tb.allocate(int(val.EncodedSize()))
+	val.EncodeValue(dst)
 }
 
 func newTableBuiler(opt *Options) *tableBuilder {
@@ -122,6 +123,8 @@ func (tb *tableBuilder) tryFinishBlock(e *utils.Entry) bool {
 		return true
 	}
 
+	val := utils.ValueStruct{Value: e.Value}
+
 	if len(tb.curBlock.entryOffsets) <= 0 {
 		return false
 	}
@@ -131,7 +134,7 @@ func (tb *tableBuilder) tryFinishBlock(e *utils.Entry) bool {
 		8 + // Sum64 in checksum proto
 		4) // checksum length
 	estimatedSize := uint32(tb.curBlock.end) + uint32(6 /*header size for entry*/) +
-		uint32(len(e.Key)) + uint32(e.EncodedSize()) + entriesOffsetsSize
+		uint32(len(e.Key)) + uint32(val.EncodedSize()) + entriesOffsetsSize
 
 	// Integer overflow check for table size.
 	utils.CondPanic(!(uint64(tb.curBlock.end)+uint64(estimatedSize) < math.MaxUint32), errors.New("Integer overflow"))
@@ -381,7 +384,9 @@ func (itr *blockIterator) setIdx(i int) {
 	diffKey := entryData[headerSize:valueOff]
 	itr.key = append(itr.key[:h.overlap], diffKey...)
 	e := utils.NewEntry(itr.key, nil)
-	e.DecodeEntry(entryData[valueOff:])
+	val := &utils.ValueStruct{}
+	val.DecodeValue(entryData[valueOff:])
+	itr.val = val.Value
 	itr.it = &Item{e: e}
 }
 

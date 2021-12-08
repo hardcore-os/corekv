@@ -74,6 +74,10 @@ func (e *Element) key(arena *Arena) []byte {
 	return arena.getKey(e.keyOffset, e.keySize)
 }
 
+func (list *SkipList) Size() int64 {
+	return list.arena.Size()
+}
+
 func (list *SkipList) Add(data *Entry) error {
 	list.lock.Lock()
 	defer list.lock.Unlock()
