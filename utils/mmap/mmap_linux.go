@@ -1,3 +1,5 @@
+// +build linux
+
 // Copyright 2021 hardcore-os Project Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License")
@@ -40,4 +42,9 @@ func Madvise(b []byte, readahead bool) error {
 // Msync would call sync on the mmapped data.
 func Msync(b []byte) error {
 	return msync(b)
+}
+
+// Mremap unmmap and mmap
+func Mremap(data []byte, size int) ([]byte, error) {
+	return mremap(data, size)
 }

@@ -15,6 +15,7 @@
 package lsm
 
 import (
+	"os"
 	"testing"
 
 	"github.com/hardcore-os/corekv/utils"
@@ -46,12 +47,15 @@ var (
 
 // 对level 管理器的功能测试
 func TestFlushBase(t *testing.T) {
+	createDir(t, opt.WorkDir)
 	lsm := buildCase()
+	defer cleanDir(t, opt.WorkDir)
 	test := func() {
 		// 测试 flush
 		assert.Nil(t, lsm.levels.flush(lsm.memTable))
 		// 基准chess
 		baseTest(t, lsm)
+
 	}
 	// 运行N次测试多个sst的影响
 	runTest(test, 2)
@@ -59,7 +63,10 @@ func TestFlushBase(t *testing.T) {
 
 // TestRecovery _
 func TestRecoveryBase(t *testing.T) {
+	createDir(t, opt.WorkDir)
+	defer cleanDir(t, opt.WorkDir)
 	buildCase()
+
 	test := func() {
 		// 丢弃整个LSM结构模拟数据库崩溃恢复
 		lsm := NewLSM(opt)
@@ -89,4 +96,12 @@ func runTest(test func(), n int) {
 	for i := 0; i < n; i++ {
 		test()
 	}
+}
+
+func cleanDir(t *testing.T, dir string) {
+	assert.Nil(t, os.RemoveAll(dir))
+}
+
+func createDir(t *testing.T, dir string) {
+	assert.Nil(t, os.Mkdir(dir, 0755))
 }
