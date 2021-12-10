@@ -36,11 +36,17 @@ type table struct {
 }
 
 func openTable(lm *levelManager, tableName string, builder *tableBuilder) *table {
+	size := int(0)
+	if builder != nil {
+		size = builder.done().size
+	} else {
+		size = int(lm.opt.SSTableMaxSz)
+	}
 	ss := file.OpenSStable(&file.Options{
 		FileName: tableName,
 		Dir:      lm.opt.WorkDir,
 		Flag:     os.O_CREATE | os.O_RDWR,
-		MaxSz:    int(lm.opt.SSTableMaxSz)})
+		MaxSz:    size})
 	t := &table{ss: ss, lm: lm, fid: utils.FID(tableName)}
 	// 对builder来flush到此篇
 	if builder != nil {

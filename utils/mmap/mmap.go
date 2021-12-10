@@ -41,8 +41,3 @@ func Madvise(b []byte, readahead bool) error {
 func Msync(b []byte) error {
 	return msync(b)
 }
-
-// Mremap unmmap and mmap
-func Mremap(data []byte, size int) ([]byte, error) {
-	return mremap(data, size)
-}

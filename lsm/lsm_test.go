@@ -34,10 +34,11 @@ var (
 		{Key: []byte("hello7_12345678"), Value: []byte("world7"), ExpiresAt: uint64(0)},
 	}
 	// 初始化opt
+
 	opt = &Options{
 		WorkDir:            "../work_test",
-		SSTableMaxSz:       283,
-		MemTableSize:       224,
+		SSTableMaxSz:       1024,
+		MemTableSize:       1024,
 		BlockSize:          1024,
 		BloomFalsePositive: 0.01,
 	}

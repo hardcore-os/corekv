@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	defaultMaxLevel = 48
+	defaultMaxLevel = 20
 )
 
 type SkipList struct {
@@ -237,7 +237,7 @@ func (list *SkipList) NewSkipListIterator() Iterator {
 
 func (iter *SkipListIter) Next() {
 	AssertTrue(iter.Valid())
-	iter.list.getNext(iter.elem, 0) //只在最底层遍历就行了
+	iter.elem = iter.list.getNext(iter.elem, 0) //只在最底层遍历就行了
 }
 
 func (iter *SkipListIter) Valid() bool {
@@ -245,7 +245,7 @@ func (iter *SkipListIter) Valid() bool {
 }
 func (iter *SkipListIter) Rewind() {
 	head := iter.list.arena.getElement(iter.list.headOffset)
-	iter.elem = head
+	iter.elem = iter.list.getNext(head, 0)
 }
 
 func (iter *SkipListIter) Item() Item {
