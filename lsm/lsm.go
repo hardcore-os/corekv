@@ -23,6 +23,15 @@ type Options struct {
 	BlockSize int
 	// BloomFalsePositive is the false positive probabiltiy of bloom filter.
 	BloomFalsePositive float64
+
+	// compact
+	NumCompactors       int
+	BaseLevelSize       int64
+	LevelSizeMultiplier int // 决定level之间期望的size比例
+	TableSizeMultiplier int
+	BaseTableSize       int64
+	NumLevelZeroTables  int
+	MaxLevelNum         int
 }
 
 // Close  _
@@ -48,24 +57,21 @@ func (lsm *LSM) Close() error {
 // NewLSM _
 func NewLSM(opt *Options) *LSM {
 	lsm := &LSM{option: opt}
+	// 初始化levelManager
+	lsm.levels = lsm.initLevelManager(opt)
 	// 启动DB恢复过程加载wal，如果没有恢复内容则创建新的内存表
 	lsm.memTable, lsm.immutables = lsm.recovery()
-	// 初始化levelManager
-	lsm.levels = newLevelManager(opt)
 	// 初始化closer 用于资源回收的信号控制
 	lsm.closer = utils.NewCloser(1)
 	return lsm
 }
 
-// StartMerge _
-func (lsm *LSM) StartMerge() {
-	defer lsm.closer.Done()
-	for {
-		select {
-		case <-lsm.closer.Wait():
-			return
-		}
-		// 处理并发的合并过程
+// StartCompacter _
+func (lsm *LSM) StartCompacter() {
+	n := lsm.option.NumCompactors
+	lsm.closer.Add(n)
+	for i := 0; i < n; i++ {
+		go lsm.levels.runCompacter(n)
 	}
 }
 
@@ -73,25 +79,26 @@ func (lsm *LSM) StartMerge() {
 func (lsm *LSM) Set(entry *utils.Entry) (err error) {
 	// 检查当前memtable是否写满，是的话创建新的memtable,并将当前内存表写到immutables中
 	// 否则写入当前memtable中
-	if lsm.memTable.Size() > lsm.option.MemTableSize {
+	if int64(lsm.memTable.wal.Size())+
+		int64(utils.EstimateWalCodecSize(entry)) > lsm.option.MemTableSize {
 		lsm.immutables = append(lsm.immutables, lsm.memTable)
 		lsm.memTable = lsm.NewMemtable()
 	}
 
-	if err := lsm.memTable.set(entry); err != nil {
+	if err = lsm.memTable.set(entry); err != nil {
 		return err
 	}
 	// 检查是否存在immutable需要刷盘，
 	for _, immutable := range lsm.immutables {
-		if err := lsm.levels.flush(immutable); err != nil {
+		if err = lsm.levels.flush(immutable); err != nil {
 			return err
 		}
+		err = immutable.close()
+		utils.Panic(err)
 	}
-	// 释放 immutable 表
-	for i := 0; i < len(lsm.immutables); i++ {
-		lsm.immutables[i].close()
-	}
-	return nil
+	// TODO 将lsm的immutables队列置空，这里可以优化一下节省内存空间
+	lsm.immutables = make([]*memTable, 0)
+	return err
 }
 
 // Get _
@@ -104,8 +111,9 @@ func (lsm *LSM) Get(key []byte) (*utils.Entry, error) {
 	if entry, err = lsm.memTable.Get(key); entry != nil {
 		return entry, err
 	}
-	for _, imm := range lsm.immutables {
-		if entry, err = imm.Get(key); entry != nil {
+
+	for i := len(lsm.immutables) - 1; i >= 0; i-- {
+		if entry, err = lsm.immutables[i].Get(key); entry != nil {
 			return entry, err
 		}
 	}

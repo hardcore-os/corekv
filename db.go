@@ -43,7 +43,7 @@ func Open(opt *Options) *DB {
 	// 初始化统计信息
 	db.stats = newStats(opt)
 	// 启动 sstable 的合并压缩过程
-	go db.lsm.StartMerge()
+	go db.lsm.StartCompacter()
 	// 启动 vlog gc 过程
 	go db.vlog.StartGC()
 	// 启动 info 统计过程

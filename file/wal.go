@@ -31,11 +31,15 @@ import (
 type WalFile struct {
 	lock    *sync.RWMutex
 	f       *MmapFile
-	fid     uint32
 	opts    *Options
 	buf     *bytes.Buffer
 	size    uint32
 	writeAt uint32
+}
+
+// Fid _
+func (wf *WalFile) Fid() uint64 {
+	return wf.opts.FID
 }
 
 // Close _
@@ -44,8 +48,7 @@ func (wf *WalFile) Close() error {
 	if err := wf.f.Close(); err != nil {
 		return err
 	}
-	os.Remove(fileName)
-	return nil
+	return os.Remove(fileName)
 }
 
 // Name _
@@ -53,9 +56,9 @@ func (wf *WalFile) Name() string {
 	return wf.f.Fd.Name()
 }
 
-// Size _
+// Size 当前已经被写入的数据
 func (wf *WalFile) Size() uint32 {
-	return wf.size
+	return wf.writeAt
 }
 
 // OpenWalFile _
@@ -73,7 +76,8 @@ func (wf *WalFile) Write(entry *utils.Entry) error {
 	// 序列化为磁盘结构
 	wf.lock.Lock()
 	plen := utils.WalCodec(wf.buf, entry)
-	utils.CondPanic(plen != copy(wf.f.Data[wf.writeAt:], wf.buf.Bytes()), errors.New("wal.Write"))
+	buf := wf.buf.Bytes()
+	utils.Panic(wf.f.AppendBuffer(wf.writeAt, buf))
 	wf.writeAt += uint32(plen)
 	wf.lock.Unlock()
 	return nil
@@ -121,6 +125,9 @@ loop:
 // Truncate _
 // TODO Truncate 函数
 func (wf *WalFile) Truncate(end int64) error {
+	if end <= 0 {
+		return nil
+	}
 	if fi, err := wf.f.Fd.Stat(); err != nil {
 		return fmt.Errorf("while file.stat on file: %s, error: %v\n", wf.Name(), err)
 	} else if fi.Size() == end {

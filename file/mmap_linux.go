@@ -81,6 +81,10 @@ func OpenMmapFile(filename string, flag int, maxSz int) (*MmapFile, error) {
 	if flag == os.O_RDONLY {
 		writable = false
 	}
+	// 如果 sst文件层被打开过，则使用其文件原来的大小
+	if fileInfo, err := fd.Stat(); err == nil && fileInfo != nil && fileInfo.Size() > 0 {
+		maxSz = int(fileInfo.Size())
+	}
 	return OpenMmapFileUsing(fd, maxSz, writable)
 }
 
@@ -152,6 +156,32 @@ func (m *MmapFile) AllocateSlice(sz, offset int) ([]byte, int, error) {
 	return m.Data[start : start+sz], start + sz, nil
 }
 
+const oneGB = 1 << 30
+
+// AppendBuffer 向内存中追加一个buffer，如果空间不足则重新映射，扩大空间
+func (m *MmapFile) AppendBuffer(offset uint32, buf []byte) error {
+	size := len(m.Data)
+	needSize := len(buf)
+	end := int(offset) + needSize
+	if end > size {
+		growBy := size
+		if growBy > oneGB {
+			growBy = oneGB
+		}
+		if growBy < needSize {
+			growBy = needSize
+		}
+		if err := m.Truncature(int64(end)); err != nil {
+			return err
+		}
+	}
+	dLen := copy(m.Data[offset:end], buf)
+	if dLen != needSize {
+		return errors.Errorf("dLen != needSize AppendBuffer failed")
+	}
+	return nil
+}
+
 func (m *MmapFile) Sync() error {
 	if m == nil {
 		return nil
@@ -212,14 +242,12 @@ func (m *MmapFile) Truncature(maxSz int64) error {
 	if err := m.Sync(); err != nil {
 		return fmt.Errorf("while sync file: %s, error: %v\n", m.Fd.Name(), err)
 	}
-	if err := mmap.Munmap(m.Data); err != nil {
-		return fmt.Errorf("while munmap file: %s, error: %v\n", m.Fd.Name(), err)
-	}
 	if err := m.Fd.Truncate(maxSz); err != nil {
 		return fmt.Errorf("while truncate file: %s, error: %v\n", m.Fd.Name(), err)
 	}
+
 	var err error
-	m.Data, err = mmap.Mmap(m.Fd, true, maxSz) // Mmap up to max size.
+	m.Data, err = mmap.Mremap(m.Data, int(maxSz)) // Mmap up to max size.
 	return err
 }
 

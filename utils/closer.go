@@ -1,4 +1,4 @@
-// Copyright 2021 logicrec Project Authors
+// Copyright 2021 hardcore-os Project Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License")
 // you may not use this file except in compliance with the License.
@@ -44,4 +44,9 @@ func (c *Closer) Done() {
 // Wait 返回关闭信号
 func (c *Closer) Wait() chan struct{} {
 	return c.closeSignal
+}
+
+// Add 添加wait 计数
+func (c *Closer) Add(n int) {
+	c.waiting.Add(n)
 }

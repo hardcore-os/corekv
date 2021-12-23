@@ -317,6 +317,11 @@ func (mf *ManifestFile) Close() error {
 	}
 	return nil
 }
+
+// AddChanges 对外暴露的写比那更丰富
+func (mf *ManifestFile) AddChanges(changesParam []*pb.ManifestChange) error {
+	return mf.addChanges(changesParam)
+}
 func (mf *ManifestFile) addChanges(changesParam []*pb.ManifestChange) error {
 	changes := pb.ManifestChangeSet{Changes: changesParam}
 	buf, err := changes.Marshal()
