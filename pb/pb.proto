@@ -51,9 +51,10 @@ message ManifestChange {
 }
 message TableIndex{
         repeated BlockOffset offsets = 1;
-        bytes bloomFilter = 2;
+        bytes  bloomFilter = 2;
         uint64 maxVersion = 3;
         uint32 keyCount = 4;
+        uint32 staleDataSize = 5;
 }
 
 message BlockOffset{

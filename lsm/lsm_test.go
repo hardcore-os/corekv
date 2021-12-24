@@ -15,80 +15,84 @@
 package lsm
 
 import (
+	"fmt"
+	"math/rand"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/hardcore-os/corekv/utils"
 	"github.com/stretchr/testify/assert"
 )
 
 var (
-	// case
-	entrys = []*utils.Entry{
-		{Key: []byte("hello0_12345678"), Value: []byte("world0"), ExpiresAt: uint64(0)},
-		{Key: []byte("hello1_12345678"), Value: []byte("world1"), ExpiresAt: uint64(0)},
-		{Key: []byte("hello2_12345678"), Value: []byte("world2"), ExpiresAt: uint64(0)},
-		{Key: []byte("hello3_12345678"), Value: []byte("world3"), ExpiresAt: uint64(0)},
-		{Key: []byte("hello4_12345678"), Value: []byte("world4"), ExpiresAt: uint64(0)},
-		{Key: []byte("hello5_12345678"), Value: []byte("world5"), ExpiresAt: uint64(0)},
-		{Key: []byte("hello6_12345678"), Value: []byte("world6"), ExpiresAt: uint64(0)},
-		{Key: []byte("hello7_12345678"), Value: []byte("world7"), ExpiresAt: uint64(0)},
-	}
 	// 初始化opt
 
 	opt = &Options{
-		WorkDir:            "../work_test",
-		SSTableMaxSz:       1024,
-		MemTableSize:       1024,
-		BlockSize:          1024,
-		BloomFalsePositive: 0.01,
+		WorkDir:             "../work_test",
+		SSTableMaxSz:        1024,
+		MemTableSize:        1024,
+		BlockSize:           1024,
+		BloomFalsePositive:  0.01,
+		BaseLevelSize:       10 << 20,
+		LevelSizeMultiplier: 10,
+		BaseTableSize:       2 << 20,
+		TableSizeMultiplier: 2,
+		NumLevelZeroTables:  15,
+		MaxLevelNum:         7,
+		NumCompactors:       5,
 	}
 )
 
 // 对level 管理器的功能测试
-func TestFlushBase(t *testing.T) {
-	createDir(t, opt.WorkDir)
-	lsm := buildCase()
-	defer cleanDir(t, opt.WorkDir)
+func TestBase(t *testing.T) {
 	test := func() {
-		// 测试 flush
-		assert.Nil(t, lsm.levels.flush(lsm.memTable))
+		lsm := buildLSM()
 		// 基准chess
-		baseTest(t, lsm)
-
+		baseTest(t, lsm, 1)
 	}
 	// 运行N次测试多个sst的影响
 	runTest(test, 2)
 }
 
 // TestRecovery _
-func TestRecoveryBase(t *testing.T) {
-	createDir(t, opt.WorkDir)
-	defer cleanDir(t, opt.WorkDir)
-	buildCase()
-
+func TestRecovery(t *testing.T) {
 	test := func() {
-		// 丢弃整个LSM结构模拟数据库崩溃恢复
-		lsm := NewLSM(opt)
+		lsm := buildLSM()
 		// 测试正确性
-		baseTest(t, lsm)
+		baseTest(t, lsm, 5)
+		// 来一个新的wal文件
+		lsm.Set(buildEntry())
 	}
+	// 允许两次就能实现恢复
 	runTest(test, 1)
 }
 
-func buildCase() *LSM {
+func buildLSM() *LSM {
 	// init DB Basic Test
 	lsm := NewLSM(opt)
-	for _, entry := range entrys {
-		lsm.Set(entry)
-	}
 	return lsm
 }
-func baseTest(t *testing.T, lsm *LSM) {
+func buildEntry() *utils.Entry {
+	key := []byte(fmt.Sprintf("%s__12345678", randStr(16)))
+	value := []byte(randStr(128))
+	expiresAt := uint64(time.Now().Unix())
+	return &utils.Entry{
+		Key:       key,
+		Value:     value,
+		ExpiresAt: expiresAt,
+	}
+}
+func baseTest(t *testing.T, lsm *LSM, n int) {
+	e := buildEntry()
+	lsm.Set(e)
+	for i := 1; i < n; i++ {
+		lsm.Set(buildEntry())
+	}
 	// 从levels中进行GET
-	v, err := lsm.Get([]byte("hello7_12345678"))
+	v, err := lsm.Get(e.Key)
 	assert.Nil(t, err)
-	assert.Equal(t, []byte("world7"), v.Value)
+	assert.Equal(t, e.Value, v.Value)
 	t.Logf("levels.Get key=%s, value=%s, expiresAt=%d", v.Key, v.Value, v.ExpiresAt)
 }
 
@@ -98,10 +102,21 @@ func runTest(test func(), n int) {
 	}
 }
 
-func cleanDir(t *testing.T, dir string) {
-	assert.Nil(t, os.RemoveAll(dir))
+func randStr(length int) string {
+	str := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	bytes := []byte(str)
+	result := []byte{}
+	rand.Seed(time.Now().UnixNano() + int64(rand.Intn(100)))
+	for i := 0; i < length; i++ {
+		result = append(result, bytes[rand.Intn(len(bytes))])
+	}
+	return string(result)
 }
 
-func createDir(t *testing.T, dir string) {
-	assert.Nil(t, os.Mkdir(dir, 0755))
+func clearDir() {
+	_, err := os.Stat(opt.WorkDir)
+	if err == nil {
+		os.RemoveAll(opt.WorkDir)
+	}
+	os.Mkdir(opt.WorkDir, os.ModePerm)
 }

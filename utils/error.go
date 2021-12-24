@@ -60,9 +60,12 @@ var (
 
 	ErrTruncate = errors.New("Do truncate")
 	ErrStop     = errors.New("Stop")
+
+	// compact
+	ErrFillTables = errors.New("Unable to fill tables")
 )
 
-// Panic 如果err 不为nil 则panic
+// Panic 如果err 不为nil 则panicc
 func Panic(err error) {
 	if err != nil {
 		panic(err)
@@ -77,11 +80,18 @@ func Panic2(_ interface{}, err error) {
 // Err err
 func Err(err error) error {
 	if err != nil {
-		fmt.Printf("%s %s", location(2, true), err)
+		fmt.Printf("%s %s\n", location(2, true), err)
 	}
 	return err
 }
 
+// WarpErr err
+func WarpErr(format string, err error) error {
+	if err != nil {
+		fmt.Printf("%s %s %s", format, location(2, true), err)
+	}
+	return err
+}
 func location(deep int, fullPath bool) string {
 	_, file, line, ok := runtime.Caller(deep)
 	if !ok {

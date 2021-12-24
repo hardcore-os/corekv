@@ -22,6 +22,8 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/hardcore-os/corekv/file"
 	"github.com/hardcore-os/corekv/pb"
@@ -33,37 +35,47 @@ type table struct {
 	ss  *file.SSTable
 	lm  *levelManager
 	fid uint64
+	ref int32 // For file garbage collection. Atomic.
 }
 
 func openTable(lm *levelManager, tableName string, builder *tableBuilder) *table {
-	size := int(0)
+	sstSize := int(lm.opt.SSTableMaxSz)
 	if builder != nil {
-		size = builder.done().size
-	} else {
-		size = int(lm.opt.SSTableMaxSz)
+		sstSize = int(builder.done().size)
 	}
-	ss := file.OpenSStable(&file.Options{
-		FileName: tableName,
-		Dir:      lm.opt.WorkDir,
-		Flag:     os.O_CREATE | os.O_RDWR,
-		MaxSz:    size})
-	t := &table{ss: ss, lm: lm, fid: utils.FID(tableName)}
-	// 对builder来flush到此篇
+	var (
+		t   *table
+		err error
+	)
+	fid := utils.FID(tableName)
+	// 对builder存在的情况 把buf flush到磁盘
 	if builder != nil {
-		if err := builder.flush(ss); err != nil {
+		if t, err = builder.flush(lm, tableName); err != nil {
 			utils.Err(err)
 			return nil
 		}
+	} else {
+		t = &table{lm: lm, fid: fid}
+		// 如果没有builder 则创打开一个已经存在的sst文件
+		t.ss = file.OpenSStable(&file.Options{
+			FileName: tableName,
+			Dir:      lm.opt.WorkDir,
+			Flag:     os.O_CREATE | os.O_RDWR,
+			MaxSz:    int(sstSize)})
 	}
+	//  初始化sst文件，把index加载进来
 	if err := t.ss.Init(); err != nil {
 		utils.Err(err)
 		return nil
 	}
+	t.IncrRef()
 	return t
 }
 
 // Serach 从table中查找key
 func (t *table) Serach(key []byte, maxVs *uint64) (entry *utils.Entry, err error) {
+	t.IncrRef()
+	defer t.DecrRef()
 	// 获取索引
 	idx := t.ss.Indexs()
 	// 检查key是否存在
@@ -190,6 +202,7 @@ type tableIterator struct {
 }
 
 func (t *table) NewIterator(options *utils.Options) utils.Iterator {
+	t.IncrRef()
 	return &tableIterator{
 		opt: options,
 		t:   t,
@@ -197,17 +210,90 @@ func (t *table) NewIterator(options *utils.Options) utils.Iterator {
 	}
 }
 func (it *tableIterator) Next() {
+	it.err = nil
+
+	if it.blockPos >= len(it.t.ss.Indexs().GetOffsets()) {
+		it.err = io.EOF
+		return
+	}
+
+	if len(it.bi.data) == 0 {
+		block, err := it.t.block(it.blockPos)
+		if err != nil {
+			it.err = err
+			return
+		}
+		it.bi.tableID = it.t.fid
+		it.bi.blockID = it.blockPos
+		it.bi.setBlock(block)
+		it.bi.seekToFirst()
+		it.err = it.bi.Error()
+		return
+	}
+
+	it.bi.Next()
+	if !it.bi.Valid() {
+		it.blockPos++
+		it.bi.data = nil
+		it.Next()
+		return
+	}
 }
 func (it *tableIterator) Valid() bool {
-	return it == nil
+	return it.err != io.EOF // 如果没有的时候 则是EOF
 }
 func (it *tableIterator) Rewind() {
+	if it.opt.IsAsc {
+		it.seekToFirst()
+	} else {
+		it.seekToLast()
+	}
 }
 func (it *tableIterator) Item() utils.Item {
 	return it.it
 }
 func (it *tableIterator) Close() error {
-	return nil
+	it.bi.Close()
+	return it.t.DecrRef()
+}
+func (it *tableIterator) seekToFirst() {
+	numBlocks := len(it.t.ss.Indexs().Offsets)
+	if numBlocks == 0 {
+		it.err = io.EOF
+		return
+	}
+	it.blockPos = 0
+	block, err := it.t.block(it.blockPos)
+	if err != nil {
+		it.err = err
+		return
+	}
+	it.bi.tableID = it.t.fid
+	it.bi.blockID = it.blockPos
+	it.bi.setBlock(block)
+	it.bi.seekToFirst()
+	it.it = it.bi.Item()
+	it.err = it.bi.Error()
+}
+
+func (it *tableIterator) seekToLast() {
+	numBlocks := len(it.t.ss.Indexs().Offsets)
+	if numBlocks == 0 {
+		it.err = io.EOF
+		return
+	}
+	it.blockPos = numBlocks - 1
+	block, err := it.t.block(it.blockPos)
+	if err != nil {
+		it.err = err
+		return
+	}
+	it.bi.tableID = it.t.fid
+	it.bi.blockID = it.blockPos
+	it.bi.setBlock(block)
+	it.bi.seekToLast()
+	it.it = it.bi.Item()
+	it.err = it.bi.Error()
 }
 
 // Seek
@@ -257,4 +343,45 @@ func (t *table) offsets(ko *pb.BlockOffset, i int) bool {
 	}
 	*ko = *index.GetOffsets()[i]
 	return true
+}
+
+// Size is its file size in bytes
+func (t *table) Size() int64 { return int64(t.ss.Size()) }
+
+// GetCreatedAt
+func (t *table) GetCreatedAt() *time.Time {
+	return t.ss.GetCreatedAt()
+}
+func (t *table) Delete() error {
+	return t.ss.Detele()
+}
+
+// StaleDataSize is the amount of stale data (that can be dropped by a compaction )in this SST.
+func (t *table) StaleDataSize() uint32 { return t.ss.Indexs().StaleDataSize }
+
+// DecrRef decrements the refcount and possibly deletes the table
+func (t *table) DecrRef() error {
+	newRef := atomic.AddInt32(&t.ref, -1)
+	if newRef == 0 {
+		// TODO 从缓存中删除
+		for i := 0; i < len(t.ss.Indexs().GetOffsets()); i++ {
+			t.lm.cache.blocks.Del(t.blockCacheKey(i))
+		}
+		if err := t.Delete(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *table) IncrRef() {
+	atomic.AddInt32(&t.ref, 1)
+}
+func decrRefs(tables []*table) error {
+	for _, table := range tables {
+		if err := table.DecrRef(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

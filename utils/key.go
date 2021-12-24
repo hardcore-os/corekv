@@ -1,3 +1,17 @@
+// Copyright 2021 logicrec Project Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License")
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+// http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // Copyright 2021 hardcore-os Project Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License")
@@ -55,6 +69,14 @@ func SameKey(src, dst []byte) bool {
 	return bytes.Equal(ParseKey(src), ParseKey(dst))
 }
 
+// KeyWithTs generates a new key by appending ts to key.
+func KeyWithTs(key []byte, ts uint64) []byte {
+	out := make([]byte, len(key)+8)
+	copy(out, key)
+	binary.BigEndian.PutUint64(out[len(key):], math.MaxUint64-ts)
+	return out
+}
+
 // MemHash is the hash function used by go map, it utilizes available hardware instructions(behaves
 // as aeshash if aes instruction is available).
 // NOTE: The hash seed changes for every process. So, this cannot be used as a persistent hash.
@@ -69,4 +91,9 @@ func MemHash(data []byte) uint64 {
 func MemHashString(str string) uint64 {
 	ss := (*stringStruct)(unsafe.Pointer(&str))
 	return uint64(memhash(ss.str, 0, uintptr(ss.len)))
+}
+
+// SafeCopy does append(a[:0], src...).
+func SafeCopy(a, src []byte) []byte {
+	return append(a[:0], src...)
 }
