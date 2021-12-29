@@ -57,14 +57,7 @@ func sizeVarint(x uint64) (n int) {
 	return n
 }
 
-func NewEntry(key, value []byte) *Entry {
-	return &Entry{
-		Key:   key,
-		Value: value,
-	}
-}
-
-//最外层写入的结构体
+//Entry _ 最外层写入的结构体
 type Entry struct {
 	Key       []byte
 	Value     []byte
@@ -76,11 +69,28 @@ type Entry struct {
 	ValThreshold int64
 }
 
+// NewEntry_
+func NewEntry(key, value []byte) *Entry {
+	return &Entry{
+		Key:   key,
+		Value: value,
+	}
+}
+
+// Entry_
 func (e *Entry) Entry() *Entry {
 	return e
 }
 
+// WithTTL _
 func (e *Entry) WithTTL(dur time.Duration) *Entry {
 	e.ExpiresAt = uint64(time.Now().Add(dur).Unix())
 	return e
+}
+
+// EncodedSize is the size of the ValueStruct when encoded
+func (e *Entry) EncodedSize() uint32 {
+	sz := len(e.Value)
+	enc := sizeVarint(e.ExpiresAt)
+	return uint32(sz + enc)
 }
