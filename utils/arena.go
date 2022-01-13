@@ -26,54 +26,32 @@ func newArena(n int64) *Arena {
 }
 
 func (s *Arena) allocate(sz uint32) uint32 {
-	offset := atomic.AddUint32(&s.n, sz)
-
-	//if offset + MaxNode size > len(s.buf) overflow
-	if int(offset) > len(s.buf)-MaxNodeSize {
-		growBy := uint32(len(s.buf))
-		if growBy > 1<<30 {
-			growBy = 1 << 30
-		}
-
-		if growBy < sz {
-			growBy = sz
-		}
-
-		newBuf := make([]byte, len(s.buf)+int(growBy))
-		AssertTrue(len(s.buf) == copy(newBuf, s.buf))
-		s.buf = newBuf
-	}
-
-	return offset - sz
+	//implement me here！！！
+	// 在 arena 中分配指定大小的内存空间
+	return 0
 }
 
 //在arena里开辟一块空间，用以存放sl中的节点
 //返回值为在arena中的offset
 func (s *Arena) putNode(height int) uint32 {
-	unusedSize := (defaultMaxLevel - height) * offsetSize
-
-	l := uint32(MaxNodeSize - unusedSize + nodeAlign)
-
-	n := s.allocate(l)
-
-	m := (n + uint32(nodeAlign)) & ^uint32(nodeAlign)
-	return m
+	//implement me here！！！
+	// 这里的 node 要保存 value 、key 和 next 指针值
+	// 所以要计算清楚需要申请多大的内存空间
+	return 0
 }
 
 func (s *Arena) putVal(v ValueStruct) uint32 {
-	l := v.EncodedSize()
-	offset := s.allocate(l)
-	v.EncodeValue(s.buf[offset:])
-	return offset
+	//implement me here！！！
+	//将 Value 值存储到 arena 当中
+	// 并且将指针返回，返回的指针值应被存储在 Node 节点中
+	return 0
 }
 
 func (s *Arena) putKey(key []byte) uint32 {
-	keySz := uint32(len(key))
-	offset := s.allocate(keySz)
-	buf := s.buf[offset : offset+keySz]
-	AssertTrue(len(key) == copy(buf, key))
-
-	return offset
+	//implement me here！！！
+	//将  Key 值存储到 arena 当中
+	// 并且将指针返回，返回的指针值应被存储在 Node 节点中
+	return 0
 }
 
 func (s *Arena) getElement(offset uint32) *Element {
@@ -95,15 +73,15 @@ func (s *Arena) getVal(offset uint32, size uint32) (v ValueStruct) {
 
 //用element在内存中的地址 - arena首字节的内存地址，得到在arena中的偏移量
 func (s *Arena) getElementOffset(nd *Element) uint32 {
-	if nd == nil {
-		return 0
-	}
-
-	return uint32(uintptr(unsafe.Pointer(nd)) - uintptr(unsafe.Pointer(&s.buf[0])))
+	//implement me here！！！
+	//获取某个节点，在 arena 当中的偏移量
+	return 0
 }
 
 func (e *Element) getNextOffset(h int) uint32 {
-	return atomic.LoadUint32(&e.levels[h])
+	//implement me here！！！
+	// 这个方法用来计算节点在h 层数下的 next 节点
+	return 0
 }
 
 func (s *Arena) Size() int64 {
