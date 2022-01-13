@@ -33,7 +33,7 @@ var (
 		SSTableMaxSz:        1024,
 		MemTableSize:        1024,
 		BlockSize:           1024,
-		BloomFalsePositive:  0.01,
+		BloomFalsePositive:  0,
 		BaseLevelSize:       10 << 20,
 		LevelSizeMultiplier: 10,
 		BaseTableSize:       2 << 20,
@@ -46,10 +46,11 @@ var (
 
 // 对level 管理器的功能测试
 func TestBase(t *testing.T) {
+	clearDir()
 	test := func() {
 		lsm := buildLSM()
 		// 基准chess
-		baseTest(t, lsm, 1)
+		baseTest(t, lsm, 128)
 	}
 	// 运行N次测试多个sst的影响
 	runTest(test, 2)
@@ -60,11 +61,24 @@ func TestRecovery(t *testing.T) {
 	test := func() {
 		lsm := buildLSM()
 		// 测试正确性
-		baseTest(t, lsm, 5)
+		baseTest(t, lsm, 128)
 		// 来一个新的wal文件
 		lsm.Set(buildEntry())
 	}
 	// 允许两次就能实现恢复
+	runTest(test, 1)
+}
+
+// 对level 管理器的功能测试
+func TestCompact(t *testing.T) {
+	clearDir()
+	lsm := buildLSM()
+	test := func() {
+		lsm.StartCompacter()
+		baseTest(t, lsm, 128)
+		time.Sleep(10 * time.Second)
+	}
+	// 运行N次测试多个sst的影响
 	runTest(test, 1)
 }
 
@@ -74,9 +88,10 @@ func buildLSM() *LSM {
 	return lsm
 }
 func buildEntry() *utils.Entry {
-	key := []byte(fmt.Sprintf("%s__12345678", randStr(16)))
+	rand.Seed(time.Now().Unix())
+	key := []byte(fmt.Sprintf("%s%s", randStr(16), "12345678"))
 	value := []byte(randStr(128))
-	expiresAt := uint64(time.Now().Unix())
+	expiresAt := uint64(time.Now().Add(12*time.Hour).UnixNano() / 1e6)
 	return &utils.Entry{
 		Key:       key,
 		Value:     value,
@@ -91,7 +106,9 @@ func baseTest(t *testing.T, lsm *LSM, n int) {
 	}
 	// 从levels中进行GET
 	v, err := lsm.Get(e.Key)
-	assert.Nil(t, err)
+	if !assert.Nil(t, err) {
+		return
+	}
 	assert.Equal(t, e.Value, v.Value)
 	t.Logf("levels.Get key=%s, value=%s, expiresAt=%d", v.Key, v.Value, v.ExpiresAt)
 }

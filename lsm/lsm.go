@@ -96,8 +96,10 @@ func (lsm *LSM) Set(entry *utils.Entry) (err error) {
 		err = immutable.close()
 		utils.Panic(err)
 	}
-	// TODO 将lsm的immutables队列置空，这里可以优化一下节省内存空间
-	lsm.immutables = make([]*memTable, 0)
+	if len(lsm.immutables) != 0 {
+		// TODO 将lsm的immutables队列置空，这里可以优化一下节省内存空间
+		lsm.immutables = make([]*memTable, 0)
+	}
 	return err
 }
 

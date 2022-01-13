@@ -398,9 +398,6 @@ func (lm *levelManager) runCompactDef(id, l int, cd compactDef) (err error) {
 		cd.splits = append(cd.splits, keyRange{})
 	}
 
-	// Table should never be moved directly between levels, always be rewritten to allow discarding
-	// invalid versions.
-
 	newTables, decr, err := lm.compactBuildTables(l, cd)
 	if err != nil {
 		return err
@@ -417,10 +414,7 @@ func (lm *levelManager) runCompactDef(id, l int, cd compactDef) (err error) {
 	if err := lm.manifestFile.AddChanges(changeSet.Changes); err != nil {
 		return err
 	}
-	// 更新levelmanger的levels
-	lm.levels[cd.nextLevel.levelNum].addBatch(newTables)
-	// See comment earlier in this function about the ordering of these ops, and the order in which
-	// we access levels when reading.
+
 	if err := nextLevel.replaceTables(cd.bot, newTables); err != nil {
 		return err
 	}
@@ -428,9 +422,6 @@ func (lm *levelManager) runCompactDef(id, l int, cd compactDef) (err error) {
 	if err := thisLevel.deleteTables(cd.top); err != nil {
 		return err
 	}
-
-	// Note: For level 0, while doCompact is running, it is possible that new tables are added.
-	// However, the tables are added only to the end, so it is ok to just delete the first table.
 
 	from := append(tablesToString(cd.top), tablesToString(cd.bot)...)
 	to := tablesToString(newTables)
@@ -496,7 +487,7 @@ func (lm *levelManager) compactBuildTables(lev int, cd compactDef) ([]*table, fu
 	topTables := cd.top
 	botTables := cd.bot
 	iterOpt := &utils.Options{
-		IsAsc: false,
+		IsAsc: true,
 	}
 	//numTables := int64(len(topTables) + len(botTables))
 

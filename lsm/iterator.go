@@ -245,7 +245,7 @@ type MergeIterator struct {
 
 type node struct {
 	valid bool
-	key   []byte
+	entry *utils.Entry
 	iter  utils.Iterator
 
 	// The two iterators are type asserted from `y.Iterator`, used to inline more function calls.
@@ -268,17 +268,17 @@ func (n *node) setKey() {
 	case n.merge != nil:
 		n.valid = n.merge.small.valid
 		if n.valid {
-			n.key = n.merge.small.key
+			n.entry = n.merge.small.entry
 		}
 	case n.concat != nil:
 		n.valid = n.concat.Valid()
 		if n.valid {
-			n.key = n.concat.Item().Entry().Key
+			n.entry = n.concat.Item().Entry()
 		}
 	default:
 		n.valid = n.iter.Valid()
 		if n.valid {
-			n.key = n.iter.Item().Entry().Key
+			n.entry = n.iter.Item().Entry()
 		}
 	}
 }
@@ -313,7 +313,7 @@ func (mi *MergeIterator) fix() {
 		mi.swapSmall()
 		return
 	}
-	cmp := utils.CompareKeys(mi.small.key, mi.bigger().key)
+	cmp := utils.CompareKeys(mi.small.entry.Key, mi.bigger().entry.Key)
 	switch {
 	case cmp == 0: // Both the keys are equal.
 		// In case of same keys, move the right iterator ahead.
@@ -361,7 +361,7 @@ func (mi *MergeIterator) swapSmall() {
 // Next returns the next element. If it is the same as the current key, ignore it.
 func (mi *MergeIterator) Next() {
 	for mi.Valid() {
-		if !bytes.Equal(mi.small.key, mi.curKey) {
+		if !bytes.Equal(mi.small.entry.Key, mi.curKey) {
 			break
 		}
 		mi.small.next()
@@ -371,7 +371,7 @@ func (mi *MergeIterator) Next() {
 }
 
 func (mi *MergeIterator) setCurrent() {
-	mi.curKey = append(mi.curKey[:0], mi.small.key...)
+	mi.curKey = append(mi.curKey[:0], mi.small.entry.Key...)
 }
 
 // Rewind seeks to first element (or last element for reverse iterator).

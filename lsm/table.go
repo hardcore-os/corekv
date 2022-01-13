@@ -87,7 +87,7 @@ func (t *table) Serach(key []byte, maxVs *uint64) (entry *utils.Entry, err error
 	defer iter.Close()
 
 	iter.Seek(key)
-	if iter.Valid() {
+	if !iter.Valid() {
 		return nil, utils.ErrKeyNotFound
 	}
 
