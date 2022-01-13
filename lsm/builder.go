@@ -147,7 +147,7 @@ func (tb *tableBuilder) tryFinishBlock(e *utils.Entry) bool {
 	if tb.curBlock == nil {
 		return true
 	}
-	
+
 	if len(tb.curBlock.entryOffsets) <= 0 {
 		return false
 	}
@@ -198,6 +198,7 @@ func (tb *tableBuilder) finishBlock() {
 	tb.blockList = append(tb.blockList, tb.curBlock)
 	// TODO: 预估整理builder写入磁盘后，sst文件的大小
 	tb.keyCount += uint32(len(tb.curBlock.entryOffsets))
+	tb.curBlock = nil // 表示当前block 已经被序列化到内存
 	return
 }
 
@@ -445,6 +446,8 @@ func (itr *blockIterator) setIdx(i int) {
 	val := &utils.ValueStruct{}
 	val.DecodeValue(entryData[valueOff:])
 	itr.val = val.Value
+	e.Value = val.Value
+	e.ExpiresAt = val.ExpiresAt
 	itr.it = &Item{e: e}
 }
 
@@ -457,7 +460,7 @@ func (itr *blockIterator) Next() {
 }
 
 func (itr *blockIterator) Valid() bool {
-	return itr.it == nil // TODO 这里用err比较好
+	return itr.err != io.EOF // TODO 这里用err比较好
 }
 func (itr *blockIterator) Rewind() bool {
 	itr.setIdx(0)
