@@ -46,6 +46,7 @@ var (
 
 // 对level 管理器的功能测试
 func TestBase(t *testing.T) {
+	clearDir()
 	test := func() {
 		lsm := buildLSM()
 		// 基准chess
@@ -74,9 +75,10 @@ func buildLSM() *LSM {
 	return lsm
 }
 func buildEntry() *utils.Entry {
-	key := []byte(fmt.Sprintf("%s__12345678", randStr(16)))
+	randomTime := rand.Int63n(time.Now().Unix()-94608000) + 94608000
+	key := []byte(fmt.Sprintf("%s__%d", randStr(16), randomTime))
 	value := []byte(randStr(128))
-	expiresAt := uint64(time.Now().Unix())
+	expiresAt := uint64(time.Now().Add(time.Hour).Unix())
 	return &utils.Entry{
 		Key:       key,
 		Value:     value,

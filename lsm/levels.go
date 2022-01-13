@@ -268,12 +268,8 @@ func (lh *levelHandler) overlappingTables(_ levelHandlerRLocked, kr keyRange) (i
 	return left, right
 }
 
-// replaceTables will replace tables[left:right] with newTables. Note this EXCLUDES tables[right].
-// You must call decr() to delete the old tables _after_ writing the update to the manifest.
+// 替换旧表
 func (lh *levelHandler) replaceTables(toDel, toAdd []*table) error {
-	// Need to re-search the range of tables in this level to be replaced as other goroutines might
-	// be changing it as well.  (They can't touch our tables, but if they add/remove other tables,
-	// the indices get shifted around.)
 	lh.Lock() // We s.Unlock() below.
 
 	toDelMap := make(map[uint64]struct{})
@@ -299,9 +295,7 @@ func (lh *levelHandler) replaceTables(toDel, toAdd []*table) error {
 
 	// Assign tables.
 	lh.tables = newTables
-	sort.Slice(lh.tables, func(i, j int) bool {
-		return utils.CompareKeys(lh.tables[i].ss.MinKey(), lh.tables[i].ss.MinKey()) < 0
-	})
+	lh.Sort()
 	lh.Unlock() // s.Unlock before we DecrRef tables -- that can be slow.
 	return decrRefs(toDel)
 }

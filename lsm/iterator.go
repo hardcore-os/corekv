@@ -331,8 +331,6 @@ func (mi *MergeIterator) fix() {
 		return
 	default: // bigger() is less than small.
 		if mi.reverse {
-			// Do nothing since we're iterating in reverse. Small currently points to
-			// the bigger key and that's okay in reverse iteration.
 		} else {
 			mi.swapSmall()
 		}

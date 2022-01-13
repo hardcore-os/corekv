@@ -28,9 +28,7 @@ func TestCompact(t *testing.T) {
 	lsm := buildLSM()
 	test := func() {
 		lsm.StartCompacter()
-		for i := 0; i < 128; i++ {
-			lsm.Set(buildEntry())
-		}
+		baseTest(t, lsm, 4)
 		time.Sleep(10 * time.Second)
 	}
 	// 运行N次测试多个sst的影响

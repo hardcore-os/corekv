@@ -166,7 +166,6 @@ func (lm *levelManager) doCompact(id int, p compactionPriority) error {
 		thisLevel:    lm.levels[l],
 		dropPrefixes: p.dropPrefixes,
 	}
-
 	// 如果是第0层 对齐单独填充处理
 	if l == 0 {
 		cd.nextLevel = lm.levels[p.t.baseLevel]
@@ -398,9 +397,7 @@ func (lm *levelManager) runCompactDef(id, l int, cd compactDef) (err error) {
 		cd.splits = append(cd.splits, keyRange{})
 	}
 
-	// Table should never be moved directly between levels, always be rewritten to allow discarding
-	// invalid versions.
-
+	// 归并排序，在此过程中删除无效版本
 	newTables, decr, err := lm.compactBuildTables(l, cd)
 	if err != nil {
 		return err
@@ -417,10 +414,7 @@ func (lm *levelManager) runCompactDef(id, l int, cd compactDef) (err error) {
 	if err := lm.manifestFile.AddChanges(changeSet.Changes); err != nil {
 		return err
 	}
-	// 更新levelmanger的levels
-	lm.levels[cd.nextLevel.levelNum].addBatch(newTables)
-	// See comment earlier in this function about the ordering of these ops, and the order in which
-	// we access levels when reading.
+	// 在nextLevel的levelHandel的levels中完成旧表与新表的替换
 	if err := nextLevel.replaceTables(cd.bot, newTables); err != nil {
 		return err
 	}
@@ -429,8 +423,7 @@ func (lm *levelManager) runCompactDef(id, l int, cd compactDef) (err error) {
 		return err
 	}
 
-	// Note: For level 0, while doCompact is running, it is possible that new tables are added.
-	// However, the tables are added only to the end, so it is ok to just delete the first table.
+	// L0层删除是不用加锁的，在压缩过程中flush的数据会在levels的尾部，而删除只发生在头部
 
 	from := append(tablesToString(cd.top), tablesToString(cd.bot)...)
 	to := tablesToString(newTables)
@@ -568,12 +561,6 @@ func (lm *levelManager) compactBuildTables(lev int, cd compactDef) ([]*table, fu
 func (lm *levelManager) addSplits(cd *compactDef) {
 	cd.splits = cd.splits[:0]
 
-	// Let's say we have 10 tables in cd.bot and min width = 3. Then, we'll pick
-	// 0, 1, 2 (pick), 3, 4, 5 (pick), 6, 7, 8 (pick), 9 (pick, because last table).
-	// This gives us 4 picks for 10 tables.
-	// In an edge case, 142 tables in bottom led to 48 splits. That's too many splits, because it
-	// then uses up a lot of memory for table builder.
-	// We should keep it so we have at max 5 splits.
 	width := int(math.Ceil(float64(len(cd.bot)) / 5.0))
 	if width < 3 {
 		width = 3
@@ -1032,10 +1019,7 @@ func (cs *compactStatus) compareAndAdd(_ thisAndNextLevelRLocked, cd compactDef)
 	if nextLevel.overlapsWith(cd.nextRange) {
 		return false
 	}
-	// Check whether this level really needs compaction or not. Otherwise, we'll end up
-	// running parallel compactions for the same level.
-	// Update: We should not be checking size here. Compaction priority already did the size checks.
-	// Here we should just be executing the wish of others.
+	// 记录处于压缩状态的range和table
 
 	thisLevel.ranges = append(thisLevel.ranges, cd.thisRange)
 	nextLevel.ranges = append(nextLevel.ranges, cd.nextRange)
