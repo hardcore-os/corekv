@@ -64,15 +64,13 @@ func (ss *SSTable) Init() error {
 	minKey := make([]byte, len(keyBytes))
 	copy(minKey, keyBytes)
 	ss.minKey = minKey
-
-	// init max key
-	blockLen := len(ss.idxTables.Offsets)
-	ko = ss.idxTables.Offsets[blockLen-1]
-	keyBytes = ko.GetKey()
-	maxKey := make([]byte, len(keyBytes))
-	copy(maxKey, keyBytes)
-	ss.maxKey = maxKey
+	ss.maxKey = minKey
 	return nil
+}
+
+// SetMaxKey max 需要使用table的迭代器，来获取最后一个block的最后一个key
+func (ss *SSTable) SetMaxKey(maxKey []byte) {
+	ss.maxKey = maxKey
 }
 func (ss *SSTable) initTable() (bo *pb.BlockOffset, err error) {
 	readPos := len(ss.f.Data)

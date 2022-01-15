@@ -32,10 +32,10 @@ func (e *ValueStruct) EncodedSize() uint32 {
 }
 
 // DecodeValue
-func (e *ValueStruct) DecodeValue(buf []byte) {
+func (vs *ValueStruct) DecodeValue(buf []byte) {
 	var sz int
-	e.ExpiresAt, sz = binary.Uvarint(buf)
-	e.Value = buf[sz:]
+	vs.ExpiresAt, sz = binary.Uvarint(buf)
+	vs.Value = buf[sz:]
 }
 
 //对value进行编码，并将编码后的字节写入byte
