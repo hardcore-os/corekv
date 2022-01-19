@@ -13,7 +13,7 @@ import (
 // initLevelManager 初始化函数
 func (lsm *LSM) initLevelManager(opt *Options) *levelManager {
 	lm := &levelManager{lsm: lsm} // 反引用
-	lm.compactState = lsm.newCompactStatus()
+	// TODO compact 这里需要出示好compact的状态
 	lm.opt = opt
 	// 读取manifest文件构建管理器
 	if err := lm.loadManifest(); err != nil {
@@ -30,7 +30,6 @@ type levelManager struct {
 	manifestFile *file.ManifestFile
 	levels       []*levelHandler
 	lsm          *LSM
-	compactState *compactStatus
 }
 
 func (lm *levelManager) close() error {
@@ -247,21 +246,7 @@ func (lh *levelHandler) isLastLevel() bool {
 
 type levelHandlerRLocked struct{}
 
-// overlappingTables returns the tables that intersect with key range. Returns a half-interval.
-// This function should already have acquired a read lock, and this is so important the caller must
-// pass an empty parameter declaring such.
-func (lh *levelHandler) overlappingTables(_ levelHandlerRLocked, kr keyRange) (int, int) {
-	if len(kr.left) == 0 || len(kr.right) == 0 {
-		return 0, 0
-	}
-	left := sort.Search(len(lh.tables), func(i int) bool {
-		return utils.CompareKeys(kr.left, lh.tables[i].ss.MaxKey()) <= 0
-	})
-	right := sort.Search(len(lh.tables), func(i int) bool {
-		return utils.CompareKeys(kr.right, lh.tables[i].ss.MaxKey()) < 0
-	})
-	return left, right
-}
+
 
 // replaceTables will replace tables[left:right] with newTables. Note this EXCLUDES tables[right].
 // You must call decr() to delete the old tables _after_ writing the update to the manifest.

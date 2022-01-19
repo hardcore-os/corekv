@@ -68,11 +68,7 @@ func NewLSM(opt *Options) *LSM {
 
 // StartCompacter _
 func (lsm *LSM) StartCompacter() {
-	n := lsm.option.NumCompactors
-	lsm.closer.Add(n)
-	for i := 0; i < n; i++ {
-		go lsm.levels.runCompacter(n)
-	}
+	// TODO compact  初始化
 }
 
 // Set _
