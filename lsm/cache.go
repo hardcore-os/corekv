@@ -14,15 +14,20 @@
 
 package lsm
 
-import "github.com/hardcore-os/corekv/utils"
+import (
+	coreCache "github.com/hardcore-os/corekv/utils/cache"
+)
 
 type cache struct {
-	indexs *utils.CoreMap // key fid， value table
-	blocks *utils.CoreMap // key fid_blockOffset  value block []byte
+	indexs *coreCache.Cache // key fid， value table
+	blocks *coreCache.Cache // key fid_blockOffset  value block []byte
 }
+
 type blockBuffer struct {
 	b []byte
 }
+
+const defaultCacheSize = 1024
 
 // close
 func (c *cache) close() error {
@@ -31,7 +36,7 @@ func (c *cache) close() error {
 
 // newCache
 func newCache(opt *Options) *cache {
-	return &cache{indexs: utils.NewMap(), blocks: utils.NewMap()}
+	return &cache{indexs: coreCache.NewCache(defaultCacheSize), blocks: coreCache.NewCache(defaultCacheSize)}
 }
 
 // TODO fid 使用字符串是不是会有性能损耗
