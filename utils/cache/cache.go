@@ -141,6 +141,30 @@ func (c *Cache) get(key interface{}) (interface{}, bool) {
 
 }
 
+func (c *Cache) Del(key interface{}) (interface{}, bool) {
+	c.m.Lock()
+	defer c.m.Unlock()
+	return c.del(key)
+}
+
+func (c *Cache) del(key interface{}) (interface{}, bool) {
+	keyHash, conflictHash := c.keyToHash(key)
+
+	val, ok := c.data[keyHash]
+	if !ok {
+		return 0, false
+	}
+
+	item := val.Value.(*storeItem)
+
+	if conflictHash != 0 && (conflictHash != item.conflict) {
+		return 0, false
+	}
+
+	delete(c.data, keyHash)
+	return item.conflict, true
+}
+
 func (c *Cache) keyToHash(key interface{}) (uint64, uint64) {
 	if key == nil {
 		return 0, 0
