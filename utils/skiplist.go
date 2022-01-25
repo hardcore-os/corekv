@@ -6,7 +6,13 @@ import (
 )
 
 const (
-	defaultMaxLevel = 20
+	defaultMaxLevel = 20 //设置为20可以通过第一个和第三个,第四个测试,main分支也无法通过第二个测试
+	//设置为1000000,第二个测试maxTime最大值为10000可以通过,1000000和100000会非常耗时,我没有测试完
+	//但是没有报错,当maxTime过大时,defaultMaxlevel就会由于
+	//另外一种我得测试就是保持20,maxTime = 1000000,只打印fmt.Println(key, searchVal, val)
+	//不去assert.Equal(b, searchVal.Value, []byte(val))就不会有问题,打印出来的结果肉眼随机扫描对比
+	//都是正确的,但是当我去使用searchVal去key或者Value的时候(也就是写了searchVal.Key,searchVal.Value)
+	//就会报错panic: runtime error: invalid memory address or nil pointer dereference,具体原因未查明
 )
 
 type SkipList struct {
@@ -137,6 +143,10 @@ func (list *SkipList) Add(data *Entry) error {
 	//to add elem to the skiplist
 	off := list.arena.getElementOffset(elem)
 	for i := 0; i < level; i++ {
+		if prevElemHeaders[i] == nil {
+			prevElemHeaders[i] = list.arena.getElement(list.headOffset)
+		}
+		// fmt.Sprint(elem)
 		elem.levels[i] = prevElemHeaders[i].levels[i]
 		prevElemHeaders[i].levels[i] = off
 	}
@@ -154,7 +164,7 @@ func (list *SkipList) Search(key []byte) (e *Entry) {
 	score := calcScore(key)
 
 	prevElem := list.arena.getElement(list.headOffset)
-	i := list.currHeight
+	i := list.currHeight - 1 //这里需要减一
 
 	for i >= 0 {
 		for next := list.getNext(prevElem, int(i)); next != nil; next = list.getNext(prevElem, int(i)) {
