@@ -30,20 +30,23 @@ func (s *Arena) allocate(sz uint32) uint32 {
 	//implement me here！！！
 	// 在 arena 中分配指定大小的内存空间
 	offset := atomic.AddUint32(&s.n, sz) //返回加完之后的值
-	//这里需要判断剩余的空间是否足够
-	if uint32(len(s.buf))-uint32(offset) < sz {
-		//空间不够,就扩容,首先看
+	//这里需要判断剩余的空间是否足够,这里的处理思路不是看是否有剩下的空间
+	//而是看剩下的空间是否足以放下一个node
+	// fmt.Print(uint32(len(s.buf)), uint32(offset), "\n")
+	if int32(len(s.buf))-int32(offset) < int32(MaxNodeSize) { //这里比较时不要转化为uint,这样回吧负数错误转化为正数
+		//空间不够,就扩容,首先试一下double
 		size := uint32(len(s.buf))
-		if size >= 1<<30 { //超过一个G就限制
+		if size > 1<<30 { //超过一个G就限制
 			size = 1 << 30
 		}
-		if uint32(size)-uint32(len(s.buf))-uint32(offset) < sz {
-			size = sz //不够的话就直接给这么多
+		if int32(size)+int32(len(s.buf))-int32(offset) < int32(MaxNodeSize) {
+			size = uint32(MaxNodeSize) + uint32(offset) - uint32(len(s.buf)) //不够的话就直接给这么多
 		}
 		newBuf := make([]byte, len(s.buf)+int(size))
 		//确保正确的复制了
 		AssertTrue(len(s.buf) == copy(newBuf, s.buf))
 		s.buf = newBuf
+		// fmt.Print(len(s.buf), " ")
 	}
 	return offset - sz //表示从这里开始写
 }
@@ -77,6 +80,7 @@ func (s *Arena) putKey(key []byte) uint32 {
 	//将  Key 值存储到 arena 当中
 	// 并且将指针返回,返回的指针值应被存储在 Node 节点中
 	offset := s.allocate(uint32(len(key)))
+	// fmt.Print(offset, " ")
 	copy(s.buf[offset:], key)
 	return offset
 }
@@ -100,6 +104,9 @@ func (s *Arena) getVal(offset uint32, size uint32) (v ValueStruct) {
 
 //用element在内存中的地址 - arena首字节的内存地址，得到在arena中的偏移量
 func (s *Arena) getElementOffset(nd *Element) uint32 {
+	if nd == nil {
+		return 0 //返回空指针
+	}
 	//implement me here！！！
 	//获取某个节点,在 arena 当中的偏移量
 	//unsafe.Pointer等价于void*,uintptr可以专门把void*的对于地址转化为数值型变量
