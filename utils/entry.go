@@ -36,7 +36,7 @@ func (e *ValueStruct) EncodedSize() uint32 {
 func (e *ValueStruct) DecodeValue(buf []byte) {
 	var sz int
 	e.ExpiresAt, sz = binary.Uvarint(buf) //buf前面存的是时间戳,直接进行的解压得到时间
-										//戳和大小,不会影响到value
+	//戳和大小,不会影响到value
 	e.Value = buf[sz:]
 }
 

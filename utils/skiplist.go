@@ -27,7 +27,7 @@ func NewSkipList(arenaSize int64) *SkipList {
 		currHeight: 1, //最开始只有一个头节点,默认只有一层,但是没有实际的ndoe
 		headOffset: ho,
 		arena:      arena, //lock会默认初始化一个初值非nil,maxLevel默认为0
-		maxLevel:   defaultMaxLevel,
+		// maxLevel:   defaultMaxLevel,
 	}
 }
 
@@ -126,13 +126,13 @@ func (list *SkipList) Add(data *Entry) error {
 	}
 
 	level := list.randLevel()
-	list.currHeight = func() int32 {
-		if list.currHeight >= int32(level) {
-			return list.currHeight
-		} else {
-			return int32(level)
-		}
-	}()
+	// list.currHeight = func() int32 {
+	// 	if list.currHeight >= int32(level) {
+	// 		return list.currHeight
+	// 	} else {
+	// 		return int32(level)
+	// 	}
+	// }()
 	elem = newElement(list.arena, data.Key, ValueStruct{Value: data.Value}, level)
 	//to add elem to the skiplist
 	off := list.arena.getElementOffset(elem)
