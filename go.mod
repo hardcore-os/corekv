@@ -3,6 +3,7 @@ module github.com/hardcore-os/corekv
 go 1.16
 
 require (
+	github.com/cespare/xxhash/v2 v2.1.2
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/protobuf v1.5.2
 	github.com/pkg/errors v0.9.1

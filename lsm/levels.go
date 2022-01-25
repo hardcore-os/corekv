@@ -68,13 +68,7 @@ func (lm *levelManager) Get(key []byte) (*utils.Entry, error) {
 }
 
 func (lm *levelManager) loadCache() {
-	lm.cache = newCache(lm.opt)
-	// 添加 idx cache
-	for _, level := range lm.levels {
-		for _, table := range level.tables {
-			lm.cache.addIndex(table.ss.FID(), table)
-		}
-	}
+
 }
 func (lm *levelManager) loadManifest() (err error) {
 	lm.manifestFile, err = file.OpenManifestFile(&file.Options{Dir: lm.opt.WorkDir})
@@ -95,6 +89,9 @@ func (lm *levelManager) build() error {
 	if err := lm.manifestFile.RevertToManifest(utils.LoadIDMap(lm.opt.WorkDir)); err != nil {
 		return err
 	}
+	// 逐一加载sstable 的index block 构建cache
+	lm.cache = newCache(lm.opt)
+	// TODO 初始化的时候index 结构放在了table中，相当于全部加载到了内存，减少了一次读磁盘，但增加了内存消耗
 	var maxFID uint64
 	for fID, tableInfo := range manifest.Tables {
 		fileName := utils.FileNameSSTable(lm.opt.WorkDir, fID)
@@ -111,8 +108,6 @@ func (lm *levelManager) build() error {
 	}
 	// 得到最大的fid值
 	atomic.AddUint64(&lm.maxFID, maxFID)
-	// 逐一加载sstable 的index block 构建cache
-	lm.loadCache()
 	return nil
 }
 

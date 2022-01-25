@@ -63,12 +63,23 @@ func openTable(lm *levelManager, tableName string, builder *tableBuilder) *table
 			Flag:     os.O_CREATE | os.O_RDWR,
 			MaxSz:    int(sstSize)})
 	}
+	// 先要引用一下，否则后面使用迭代器会导致引用状态错误
+	t.IncrRef()
 	//  初始化sst文件，把index加载进来
 	if err := t.ss.Init(); err != nil {
 		utils.Err(err)
 		return nil
 	}
-	t.IncrRef()
+
+	// 获取sst的最大key 需要使用迭代器
+	itr := t.NewIterator(&utils.Options{}) // 默认是降序
+	defer itr.Close()
+	// 定位到初始位置就是最大的key
+	itr.Rewind()
+	utils.CondPanic(!itr.Valid(), errors.Errorf("failed to read index, form maxKey"))
+	maxKey := itr.Item().Entry().Key
+	t.ss.SetMaxKey(maxKey)
+
 	return t
 }
 
@@ -87,7 +98,7 @@ func (t *table) Serach(key []byte, maxVs *uint64) (entry *utils.Entry, err error
 	defer iter.Close()
 
 	iter.Seek(key)
-	if iter.Valid() {
+	if !iter.Valid() {
 		return nil, utils.ErrKeyNotFound
 	}
 
@@ -238,6 +249,7 @@ func (it *tableIterator) Next() {
 		it.Next()
 		return
 	}
+	it.it = it.bi.it
 }
 func (it *tableIterator) Valid() bool {
 	return it.err != io.EOF // 如果没有的时候 则是EOF

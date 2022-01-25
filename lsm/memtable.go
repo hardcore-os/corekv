@@ -96,18 +96,23 @@ func (lsm *LSM) recovery() (*memTable, []*memTable) {
 		return nil, nil
 	}
 	var fids []uint64
+	maxFid := lsm.levels.maxFID
 	// 识别 后缀为.wal的文件
 	for _, file := range files {
 		if !strings.HasSuffix(file.Name(), walFileExt) {
 			continue
 		}
 		fsz := len(file.Name())
-		fid, err := strconv.ParseInt(file.Name()[:fsz-len(walFileExt)], 10, 64)
+		fid, err := strconv.ParseUint(file.Name()[:fsz-len(walFileExt)], 10, 64)
+		// 考虑 wal文件的存在 更新maxFid
+		if maxFid < fid {
+			maxFid = fid
+		}
 		if err != nil {
 			utils.Panic(err)
 			return nil, nil
 		}
-		fids = append(fids, uint64(fid))
+		fids = append(fids, fid)
 	}
 	// 排序一下子
 	sort.Slice(fids, func(i, j int) bool {
@@ -125,6 +130,8 @@ func (lsm *LSM) recovery() (*memTable, []*memTable) {
 		// TODO 如果最后一个跳表没写满会怎么样？这不就浪费空间了吗
 		imms = append(imms, mt)
 	}
+	// 更新最终的maxfid，初始化一定是串行执行的，因此不需要原子操作
+	lsm.levels.maxFID = maxFid
 	return lsm.NewMemtable(), imms
 }
 
