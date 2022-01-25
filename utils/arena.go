@@ -1,10 +1,11 @@
 package utils
 
 import (
-	"github.com/pkg/errors"
 	"log"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/pkg/errors"
 )
 
 type Arena struct {
@@ -28,6 +29,7 @@ func newArena(n int64) *Arena {
 func (s *Arena) allocate(sz uint32) uint32 {
 	//implement me here！！！
 	// 在 arena 中分配指定大小的内存空间
+
 	return 0
 }
 
@@ -54,12 +56,12 @@ func (s *Arena) putKey(key []byte) uint32 {
 	return 0
 }
 
+//修改判断条件
 func (s *Arena) getElement(offset uint32) *Element {
-	if offset == 0 {
+	if offset < 0 { //offset为0处表示空指针,因为这样就可以让elemet的level[i] = 0表示空了
 		return nil
 	}
-
-	return (*Element)(unsafe.Pointer(&s.buf[offset]))
+	return (*Element)(unsafe.Pointer(&s.buf[offset])) //越界会报painc
 }
 
 func (s *Arena) getKey(offset uint32, size uint16) []byte {
