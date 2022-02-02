@@ -34,7 +34,7 @@ func (v *VLog) Close() error {
 // NewVLog
 func NewVLog(opt *Options) *VLog {
 	v := &VLog{}
-	v.closer = utils.NewCloser(1)
+	v.closer = utils.NewCloser()
 	return v
 }
 
@@ -43,7 +43,7 @@ func (v *VLog) StartGC() {
 	defer v.closer.Done()
 	for {
 		select {
-		case <-v.closer.Wait():
+		case <-v.closer.CloseSignal:
 			return
 		}
 		// gc logic...

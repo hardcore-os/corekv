@@ -81,7 +81,7 @@ func (lm *levelManager) runCompacter(id int) {
 	randomDelay := time.NewTimer(time.Duration(rand.Int31n(1000)) * time.Millisecond)
 	select {
 	case <-randomDelay.C:
-	case <-lm.lsm.closer.Wait():
+	case <-lm.lsm.closer.CloseSignal:
 		randomDelay.Stop()
 		return
 	}
@@ -92,7 +92,7 @@ func (lm *levelManager) runCompacter(id int) {
 		// Can add a done channel or other stuff.
 		case <-ticker.C:
 			lm.runOnce(id)
-		case <-lm.lsm.closer.Wait():
+		case <-lm.lsm.closer.CloseSignal:
 			return
 		}
 	}

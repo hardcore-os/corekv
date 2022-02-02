@@ -36,6 +36,10 @@ type Options struct {
 
 // Close  _
 func (lsm *LSM) Close() error {
+	// 等待全部合并过程的结束
+	// 等待全部api调用过程结束
+	lsm.closer.Close()
+	// TODO 需要加锁保证并发安全
 	if lsm.memTable != nil {
 		if err := lsm.memTable.close(); err != nil {
 			return err
@@ -49,8 +53,6 @@ func (lsm *LSM) Close() error {
 	if err := lsm.levels.close(); err != nil {
 		return err
 	}
-	// 等待合并过程的结束
-	lsm.closer.Close()
 	return nil
 }
 
@@ -62,7 +64,7 @@ func NewLSM(opt *Options) *LSM {
 	// 启动DB恢复过程加载wal，如果没有恢复内容则创建新的内存表
 	lsm.memTable, lsm.immutables = lsm.recovery()
 	// 初始化closer 用于资源回收的信号控制
-	lsm.closer = utils.NewCloser(1)
+	lsm.closer = utils.NewCloser()
 	return lsm
 }
 
@@ -71,12 +73,18 @@ func (lsm *LSM) StartCompacter() {
 	n := lsm.option.NumCompactors
 	lsm.closer.Add(n)
 	for i := 0; i < n; i++ {
-		go lsm.levels.runCompacter(n)
+		go lsm.levels.runCompacter(i)
 	}
 }
 
 // Set _
 func (lsm *LSM) Set(entry *utils.Entry) (err error) {
+	if entry == nil || len(entry.Key) == 0 {
+		return utils.ErrEmptyKey
+	}
+	// 优雅关闭
+	lsm.closer.Add(1)
+	defer lsm.closer.Done()
 	// 检查当前memtable是否写满，是的话创建新的memtable,并将当前内存表写到immutables中
 	// 否则写入当前memtable中
 	if int64(lsm.memTable.wal.Size())+
@@ -105,6 +113,11 @@ func (lsm *LSM) Set(entry *utils.Entry) (err error) {
 
 // Get _
 func (lsm *LSM) Get(key []byte) (*utils.Entry, error) {
+	if len(key) == 0 {
+		return nil, utils.ErrEmptyKey
+	}
+	lsm.closer.Add(1)
+	defer lsm.closer.Done()
 	var (
 		entry *utils.Entry
 		err   error

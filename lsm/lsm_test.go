@@ -22,12 +22,10 @@ import (
 	"time"
 
 	"github.com/hardcore-os/corekv/utils"
-	"github.com/stretchr/testify/assert"
 )
 
 var (
 	// 初始化opt
-
 	opt = &Options{
 		WorkDir:             "../work_test",
 		SSTableMaxSz:        1024,
@@ -40,52 +38,265 @@ var (
 		TableSizeMultiplier: 2,
 		NumLevelZeroTables:  15,
 		MaxLevelNum:         7,
-		NumCompactors:       2,
+		NumCompactors:       3,
 	}
 )
 
-// 对level 管理器的功能测试
+// TestBase 正确性测试
 func TestBase(t *testing.T) {
 	clearDir()
+	lsm := buildLSM()
 	test := func() {
-		lsm := buildLSM()
-		// 基准chess
+		// 基准测试
 		baseTest(t, lsm, 128)
 	}
 	// 运行N次测试多个sst的影响
-	runTest(test, 2)
+	runTest(1, test)
 }
 
-// TestRecovery _
+// TestRecovery  数据库恢复测试
 func TestRecovery(t *testing.T) {
-	test := func() {
+	clearDir()
+	recovery := func() {
+		// 每次运行都是相当于意外重启
 		lsm := buildLSM()
 		// 测试正确性
 		baseTest(t, lsm, 128)
-		// 来一个新的wal文件
-		lsm.Set(buildEntry())
 	}
 	// 允许两次就能实现恢复
-	runTest(test, 1)
+	runTest(5, recovery)
 }
 
-// 对level 管理器的功能测试
-func TestCompact(t *testing.T) {
+// TestClose 测试优雅关闭
+func TestClose(t *testing.T) {
 	clearDir()
 	lsm := buildLSM()
 	lsm.StartCompacter()
 	test := func() {
-		baseTest(t, lsm, 100)
+		baseTest(t, lsm, 128)
+		utils.Err(lsm.Close())
+		// 重启后可正常工作才算成功
+		lsm = buildLSM()
+		baseTest(t, lsm, 128)
 	}
 	// 运行N次测试多个sst的影响
-	runTest(test, 10)
+	runTest(1, test)
 }
 
+// 命中不同存储介质的逻辑分支测试
+func TestHitStorage(t *testing.T) {
+	clearDir()
+	lsm := buildLSM()
+	e := buildEntry()
+	lsm.Set(e)
+	// 命中内存表
+	hitMemtable := func() {
+		v, err := lsm.memTable.Get(e.Key)
+		utils.Err(err)
+		utils.CondPanic(!equal(v.Value, e.Value), fmt.Errorf("[hitMemtable] !equal(v.Value, e.Value)"))
+	}
+	// 命中L0层
+	hitL0 := func() {
+		// baseTest的测试就包含 在命中L0的sst查询
+		baseTest(t, lsm, 128)
+	}
+	// 命中非L0层
+	hitNotL0 := func() {
+		// 通过压缩将compact生成非L0数据, 会命中l6层
+		lsm.levels.runOnce(0)
+		baseTest(t, lsm, 128)
+	}
+	// 命中bf
+	hitBloom := func() {
+		ee := buildEntry()
+		// 查询不存在的key 如果命中则说明一定不存在
+		v, err := lsm.levels.levels[0].tables[0].Serach(ee.Key, &ee.Version)
+		utils.CondPanic(v != nil, fmt.Errorf("[hitBloom] v != nil"))
+		utils.CondPanic(err != utils.ErrKeyNotFound, fmt.Errorf("[hitBloom] err != utils.ErrKeyNotFound"))
+	}
+
+	runTest(1, hitMemtable, hitL0, hitNotL0, hitBloom)
+}
+
+// Testparameter 测试异常参数
+func TestPsarameter(t *testing.T) {
+	clearDir()
+	lsm := buildLSM()
+	testNil := func() {
+		utils.CondPanic(lsm.Set(nil) != utils.ErrEmptyKey, fmt.Errorf("[testNil] lsm.Set(nil) != err"))
+		_, err := lsm.Get(nil)
+		utils.CondPanic(err != utils.ErrEmptyKey, fmt.Errorf("[testNil] lsm.Set(nil) != err"))
+	}
+	// TODO p2 优先级的case先忽略
+	runTest(1, testNil)
+}
+
+// TestCompact 测试L0到Lmax压缩
+func TestCompact(t *testing.T) {
+	clearDir()
+	lsm := buildLSM()
+	l0TOLMax := func() {
+		// 正常触发即可
+		baseTest(t, lsm, 128)
+		// 直接触发压缩执行
+		lsm.levels.runOnce(1)
+	}
+	l0ToL0 := func() {
+		// 先写一些数据进来
+		baseTest(t, lsm, 128)
+		cd := buildCompactDef(lsm, 0, 0, 0)
+		// 非常tricky的处理方法，为了能通过检查
+		tricky(cd.thisLevel.tables)
+		ok := lsm.levels.fillTablesL0ToL0(cd)
+		utils.CondPanic(!ok, fmt.Errorf("[l0ToL0] lsm.levels.fillTablesL0ToL0(cd) ret == false"))
+		err := lsm.levels.runCompactDef(0, 0, *cd)
+		// 删除全局状态，便于下游测试逻辑
+		lsm.levels.compactState.delete(*cd)
+		utils.Err(err)
+		baseTest(t, lsm, 128)
+
+	}
+	nextCompact := func() {
+		baseTest(t, lsm, 128)
+		cd := buildCompactDef(lsm, 0, 0, 1)
+		// 非常tricky的处理方法，为了能通过检查
+		tricky(cd.thisLevel.tables)
+		ok := lsm.levels.fillTables(cd)
+		utils.CondPanic(!ok, fmt.Errorf("[nextCompact] lsm.levels.fillTables(cd) ret == false"))
+		err := lsm.levels.runCompactDef(0, 0, *cd)
+		// 删除全局状态，便于下游测试逻辑
+		lsm.levels.compactState.delete(*cd)
+		utils.Err(err)
+		utils.CondPanic(len(lsm.levels.levels[1].tables) == 0, fmt.Errorf("[nextCompact] len(lsm.levels.levels[1].tables) == 0"))
+		baseTest(t, lsm, 100)
+	}
+
+	maxToMax := func() {
+		cd := buildCompactDef(lsm, 6, 6, 6)
+		// 非常tricky的处理方法，为了能通过检查
+		tricky(cd.thisLevel.tables)
+		ok := lsm.levels.fillTables(cd)
+		utils.CondPanic(!ok, fmt.Errorf("[maxToMax] lsm.levels.fillTables(cd) ret == false"))
+		err := lsm.levels.runCompactDef(0, 6, *cd)
+		// 删除全局状态，便于下游测试逻辑
+		lsm.levels.compactState.delete(*cd)
+		utils.Err(err)
+		baseTest(t, lsm, 128)
+	}
+	parallerCompact := func() {
+		cd := buildCompactDef(lsm, 0, 0, 1)
+		// 非常tricky的处理方法，为了能通过检查
+		tricky(cd.thisLevel.tables)
+		ok := lsm.levels.fillTables(cd)
+		utils.CondPanic(!ok, fmt.Errorf("[parallerCompact] lsm.levels.fillTables(cd) ret == false"))
+		// 构建完全相同两个压缩计划的执行，以便于百分比构建 压缩冲突
+		go lsm.levels.runCompactDef(0, 0, *cd)
+		lsm.levels.runCompactDef(0, 0, *cd)
+		// 检查compact status状态查看是否在执行并行压缩
+		isParaller := false
+		for _, state := range lsm.levels.compactState.levels {
+			if len(state.ranges) != 0 {
+				isParaller = true
+			}
+		}
+		utils.CondPanic(!isParaller, fmt.Errorf("[parallerCompact] not is paralle"))
+	}
+	// 运行N次测试多个sst的影响
+	runTest(1, l0TOLMax, l0ToL0, nextCompact, maxToMax, parallerCompact)
+}
+
+// 正确性测试
+func baseTest(t *testing.T, lsm *LSM, n int) {
+	// 用来跟踪调试的
+	e := &utils.Entry{
+		Key:       []byte("CRTS😁硬核课堂MrGSBtL12345678"),
+		Value:     []byte("hImkq95pkCRARFlUoQpCYUiNWYV9lkOd9xiUs0XtFNdOZe5siJVcxjc6j3E5LUng~=+%^*/()[]{}/!@#$?|©®😁😭🉑️🐂㎡硬核课堂"),
+		ExpiresAt: 0,
+	}
+	//caseList := make([]*utils.Entry, 0)
+	//caseList = append(caseList, e)
+
+	// 随机构建数据进行测试
+	lsm.Set(e)
+	for i := 1; i < n; i++ {
+		ee := buildEntry()
+		lsm.Set(ee)
+		// caseList = append(caseList, ee)
+	}
+	// 从levels中进行GET
+	v, err := lsm.Get(e.Key)
+	utils.Panic(err)
+	utils.CondPanic(!equal(e.Value, v.Value), fmt.Errorf("lsm.Get(e.Key) value not equal !!!"))
+	// TODO range功能待完善
+	//retList := make([]*utils.Entry, 0)
+	// testRange := func(isAsc bool) {
+	// 	// Range 确保写入进去的每个lsm都可以被读取到
+	// 	iter := lsm.NewIterator(&utils.Options{IsAsc: true})
+	// 	for iter.Rewind(); iter.Valid(); iter.Next() {
+	// 		e := iter.Item().Entry()
+	// 		retList = append(retList, e)
+	// 	}
+	// 	utils.CondPanic(len(retList) != len(caseList), fmt.Errorf("len(retList) != len(caseList)"))
+	// 	sort.Slice(retList, func(i, j int) bool {
+	// 		return utils.CompareKeys(retList[i].Key, retList[j].Key) > 1
+	// 	})
+	// 	for i := 0; i < len(caseList); i++ {
+	// 		a, b := caseList[i], retList[i]
+	// 		if !equal(a.Key, b.Key) || !equal(a.Value, b.Value) || a.ExpiresAt != b.ExpiresAt {
+	// 			utils.Panic(fmt.Errorf("lsm.Get(e.Key) kv disagreement !!!"))
+	// 		}
+	// 	}
+	// }
+	// // 测试升序
+	// testRange(true)
+	// // 测试降序
+	// testRange(false)
+}
+
+// 驱动模块
 func buildLSM() *LSM {
 	// init DB Basic Test
 	lsm := NewLSM(opt)
 	return lsm
 }
+
+// 运行测试用例
+func runTest(n int, testFunList ...func()) {
+	for _, f := range testFunList {
+		for i := 0; i < n; i++ {
+			f()
+		}
+	}
+}
+
+// 构建compactDef对象
+func buildCompactDef(lsm *LSM, id, thisLevel, nextLevel int) *compactDef {
+	t := targets{
+		targetSz:  []int64{0, 10485760, 10485760, 10485760, 10485760, 10485760, 10485760},
+		fileSz:    []int64{1024, 2097152, 2097152, 2097152, 2097152, 2097152, 2097152},
+		baseLevel: nextLevel,
+	}
+	def := &compactDef{
+		compactorId: id,
+		thisLevel:   lsm.levels.levels[thisLevel],
+		nextLevel:   lsm.levels.levels[nextLevel],
+		t:           t,
+		p:           buildCompactionPriority(lsm, thisLevel, t),
+	}
+	return def
+}
+
+// 构建CompactionPriority对象
+func buildCompactionPriority(lsm *LSM, thisLevel int, t targets) compactionPriority {
+	return compactionPriority{
+		level:    thisLevel,
+		score:    8.6,
+		adjusted: 860,
+		t:        t,
+	}
+}
+
+// 构建entry对象
 func buildEntry() *utils.Entry {
 	rand.Seed(time.Now().Unix())
 	key := []byte(fmt.Sprintf("%s%s", randStr(16), "12345678"))
@@ -97,32 +308,27 @@ func buildEntry() *utils.Entry {
 		ExpiresAt: expiresAt,
 	}
 }
-func baseTest(t *testing.T, lsm *LSM, n int) {
-	// 用来跟踪调试的
-	e := &utils.Entry{
-		Key:       []byte("CRTSmI4xYMrGSBtL12345678"),
-		Value:     []byte("hImkq95pkCRARFlUoQpCYUiNWYV9lkOd9xiUs0XtFNdOZe5siJVcxjc6j3E5LUng"),
-		ExpiresAt: 0,
-	}
 
-	lsm.Set(e)
-	for i := 1; i < n; i++ {
-		lsm.Set(buildEntry())
+// 判断两个字节数组是否相等
+func equal(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
 	}
-	// 从levels中进行GET
-	v, err := lsm.Get(e.Key)
-	utils.Panic(err)
-	assert.Equal(t, e.Value, v.Value)
+	if len(a) == 0 || len(b) == 0 {
+		return false
+	}
+	for i := 0; i < len(a); i++ {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
-func runTest(test func(), n int) {
-	for i := 0; i < n; i++ {
-		test()
-	}
-}
-
+// 生成随机字符串作为key和value
 func randStr(length int) string {
-	str := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	// 包括特殊字符,进行测试
+	str := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ~=+%^*/()[]{}/!@#$?|©®😁😭🉑️🐂㎡硬核课堂"
 	bytes := []byte(str)
 	result := []byte{}
 	rand.Seed(time.Now().UnixNano() + int64(rand.Intn(100)))
@@ -138,4 +344,13 @@ func clearDir() {
 		os.RemoveAll(opt.WorkDir)
 	}
 	os.Mkdir(opt.WorkDir, os.ModePerm)
+}
+
+func tricky(tables []*table) {
+	// 非常tricky的处理方法，为了能通过检查，检查所有逻辑分支
+	for _, table := range tables {
+		table.ss.Indexs().StaleDataSize = 10 << 20
+		t, _ := time.Parse("2006-01-02 15:04:05", "1995-08-10 00:00:00")
+		table.ss.SetCreatedAt(&t)
+	}
 }
