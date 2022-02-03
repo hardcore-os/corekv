@@ -135,15 +135,24 @@ func TestPsarameter(t *testing.T) {
 func TestCompact(t *testing.T) {
 	clearDir()
 	lsm := buildLSM()
+	ok := false
 	l0TOLMax := func() {
 		// 正常触发即可
 		baseTest(t, lsm, 128)
 		// 直接触发压缩执行
+		fid := lsm.levels.maxFID + 1
 		lsm.levels.runOnce(1)
+		for _, t := range lsm.levels.levels[6].tables {
+			if t.fid == fid {
+				ok = true
+			}
+		}
+		utils.CondPanic(!ok, fmt.Errorf("[l0TOLMax] fid not found"))
 	}
 	l0ToL0 := func() {
 		// 先写一些数据进来
 		baseTest(t, lsm, 128)
+		fid := lsm.levels.maxFID + 1
 		cd := buildCompactDef(lsm, 0, 0, 0)
 		// 非常tricky的处理方法，为了能通过检查
 		tricky(cd.thisLevel.tables)
@@ -153,11 +162,17 @@ func TestCompact(t *testing.T) {
 		// 删除全局状态，便于下游测试逻辑
 		lsm.levels.compactState.delete(*cd)
 		utils.Err(err)
-		baseTest(t, lsm, 128)
-
+		ok = false
+		for _, t := range lsm.levels.levels[0].tables {
+			if t.fid == fid {
+				ok = true
+			}
+		}
+		utils.CondPanic(!ok, fmt.Errorf("[l0ToL0] fid not found"))
 	}
 	nextCompact := func() {
 		baseTest(t, lsm, 128)
+		fid := lsm.levels.maxFID + 1
 		cd := buildCompactDef(lsm, 0, 0, 1)
 		// 非常tricky的处理方法，为了能通过检查
 		tricky(cd.thisLevel.tables)
@@ -167,11 +182,18 @@ func TestCompact(t *testing.T) {
 		// 删除全局状态，便于下游测试逻辑
 		lsm.levels.compactState.delete(*cd)
 		utils.Err(err)
-		utils.CondPanic(len(lsm.levels.levels[1].tables) == 0, fmt.Errorf("[nextCompact] len(lsm.levels.levels[1].tables) == 0"))
-		baseTest(t, lsm, 100)
+		ok = false
+		for _, t := range lsm.levels.levels[1].tables {
+			if t.fid == fid {
+				ok = true
+			}
+		}
+		utils.CondPanic(!ok, fmt.Errorf("[nextCompact] fid not found"))
 	}
 
 	maxToMax := func() {
+		baseTest(t, lsm, 128)
+		fid := lsm.levels.maxFID + 1
 		cd := buildCompactDef(lsm, 6, 6, 6)
 		// 非常tricky的处理方法，为了能通过检查
 		tricky(cd.thisLevel.tables)
@@ -181,9 +203,16 @@ func TestCompact(t *testing.T) {
 		// 删除全局状态，便于下游测试逻辑
 		lsm.levels.compactState.delete(*cd)
 		utils.Err(err)
-		baseTest(t, lsm, 128)
+		ok = false
+		for _, t := range lsm.levels.levels[6].tables {
+			if t.fid == fid {
+				ok = true
+			}
+		}
+		utils.CondPanic(!ok, fmt.Errorf("[maxToMax] fid not found"))
 	}
 	parallerCompact := func() {
+		baseTest(t, lsm, 128)
 		cd := buildCompactDef(lsm, 0, 0, 1)
 		// 非常tricky的处理方法，为了能通过检查
 		tricky(cd.thisLevel.tables)
