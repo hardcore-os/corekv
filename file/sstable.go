@@ -112,6 +112,11 @@ func (ss *SSTable) initTable() (bo *pb.BlockOffset, err error) {
 	return nil, errors.New("read index fail, offset is nil")
 }
 
+// Close 关闭
+func (ss *SSTable) Close() error {
+	return ss.f.Close()
+}
+
 // Indexs _
 func (ss *SSTable) Indexs() *pb.TableIndex {
 	return ss.idxTables
@@ -171,6 +176,11 @@ func (ss *SSTable) Size() int64 {
 // GetCreatedAt _
 func (ss *SSTable) GetCreatedAt() *time.Time {
 	return &ss.createdAt
+}
+
+// SetCreatedAt _
+func (ss *SSTable) SetCreatedAt(t *time.Time) {
+	ss.createdAt = *t
 }
 
 // Detele _
