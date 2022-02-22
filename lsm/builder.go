@@ -78,7 +78,11 @@ func (h header) encode() []byte {
 
 func (tb *tableBuilder) add(e *utils.Entry, isStale bool) {
 	key := e.Key
-	val := utils.ValueStruct{Value: e.Value}
+	val := utils.ValueStruct{
+		Meta:      e.Meta,
+		Value:     e.Value,
+		ExpiresAt: e.ExpiresAt,
+	}
 	// 检查是否需要分配一个新的 block
 	if tb.tryFinishBlock(e) {
 		if isStale {
@@ -448,6 +452,7 @@ func (itr *blockIterator) setIdx(i int) {
 	itr.val = val.Value
 	e.Value = val.Value
 	e.ExpiresAt = val.ExpiresAt
+	e.Meta = val.Meta
 	itr.it = &Item{e: e}
 }
 

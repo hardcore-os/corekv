@@ -22,7 +22,7 @@ import (
 )
 
 func TestAPI(t *testing.T) {
-	opt := NewDefaultOptions()
+	clearDir()
 	db := Open(opt)
 	defer func() { _ = db.Close() }()
 	// 写入

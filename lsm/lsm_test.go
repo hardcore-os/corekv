@@ -15,8 +15,8 @@
 package lsm
 
 import (
+	"bytes"
 	"fmt"
-	"math/rand"
 	"os"
 	"testing"
 	"time"
@@ -87,13 +87,13 @@ func TestClose(t *testing.T) {
 func TestHitStorage(t *testing.T) {
 	clearDir()
 	lsm := buildLSM()
-	e := buildEntry()
+	e := utils.BuildEntry()
 	lsm.Set(e)
 	// 命中内存表
 	hitMemtable := func() {
 		v, err := lsm.memTable.Get(e.Key)
 		utils.Err(err)
-		utils.CondPanic(!equal(v.Value, e.Value), fmt.Errorf("[hitMemtable] !equal(v.Value, e.Value)"))
+		utils.CondPanic(!bytes.Equal(v.Value, e.Value), fmt.Errorf("[hitMemtable] !equal(v.Value, e.Value)"))
 	}
 	// 命中L0层
 	hitL0 := func() {
@@ -108,7 +108,7 @@ func TestHitStorage(t *testing.T) {
 	}
 	// 命中bf
 	hitBloom := func() {
-		ee := buildEntry()
+		ee := utils.BuildEntry()
 		// 查询不存在的key 如果命中则说明一定不存在
 		v, err := lsm.levels.levels[0].tables[0].Serach(ee.Key, &ee.Version)
 		utils.CondPanic(v != nil, fmt.Errorf("[hitBloom] v != nil"))
@@ -239,7 +239,7 @@ func baseTest(t *testing.T, lsm *LSM, n int) {
 	// 用来跟踪调试的
 	e := &utils.Entry{
 		Key:       []byte("CRTS😁硬核课堂MrGSBtL12345678"),
-		Value:     []byte("hImkq95pkCRARFlUoQpCYUiNWYV9lkOd9xiUs0XtFNdOZe5siJVcxjc6j3E5LUng~=+%^*/()[]{}/!@#$?|©®😁😭🉑️🐂㎡硬核课堂"),
+		Value:     []byte("我草了"),
 		ExpiresAt: 0,
 	}
 	//caseList := make([]*utils.Entry, 0)
@@ -248,14 +248,14 @@ func baseTest(t *testing.T, lsm *LSM, n int) {
 	// 随机构建数据进行测试
 	lsm.Set(e)
 	for i := 1; i < n; i++ {
-		ee := buildEntry()
+		ee := utils.BuildEntry()
 		lsm.Set(ee)
 		// caseList = append(caseList, ee)
 	}
 	// 从levels中进行GET
 	v, err := lsm.Get(e.Key)
 	utils.Panic(err)
-	utils.CondPanic(!equal(e.Value, v.Value), fmt.Errorf("lsm.Get(e.Key) value not equal !!!"))
+	utils.CondPanic(!bytes.Equal(e.Value, v.Value), fmt.Errorf("lsm.Get(e.Key) value not equal !!!"))
 	// TODO range功能待完善
 	//retList := make([]*utils.Entry, 0)
 	// testRange := func(isAsc bool) {
@@ -325,56 +325,6 @@ func buildCompactionPriority(lsm *LSM, thisLevel int, t targets) compactionPrior
 	}
 }
 
-// 构建entry对象
-func buildEntry() *utils.Entry {
-	rand.Seed(time.Now().Unix())
-	key := []byte(fmt.Sprintf("%s%s", randStr(16), "12345678"))
-	value := []byte(randStr(128))
-	expiresAt := uint64(time.Now().Add(12*time.Hour).UnixNano() / 1e6)
-	return &utils.Entry{
-		Key:       key,
-		Value:     value,
-		ExpiresAt: expiresAt,
-	}
-}
-
-// 判断两个字节数组是否相等
-func equal(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	if len(a) == 0 || len(b) == 0 {
-		return false
-	}
-	for i := 0; i < len(a); i++ {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
-// 生成随机字符串作为key和value
-func randStr(length int) string {
-	// 包括特殊字符,进行测试
-	str := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ~=+%^*/()[]{}/!@#$?|©®😁😭🉑️🐂㎡硬核课堂"
-	bytes := []byte(str)
-	result := []byte{}
-	rand.Seed(time.Now().UnixNano() + int64(rand.Intn(100)))
-	for i := 0; i < length; i++ {
-		result = append(result, bytes[rand.Intn(len(bytes))])
-	}
-	return string(result)
-}
-
-func clearDir() {
-	_, err := os.Stat(opt.WorkDir)
-	if err == nil {
-		os.RemoveAll(opt.WorkDir)
-	}
-	os.Mkdir(opt.WorkDir, os.ModePerm)
-}
-
 func tricky(tables []*table) {
 	// 非常tricky的处理方法，为了能通过检查，检查所有逻辑分支
 	for _, table := range tables {
@@ -382,4 +332,11 @@ func tricky(tables []*table) {
 		t, _ := time.Parse("2006-01-02 15:04:05", "1995-08-10 00:00:00")
 		table.ss.SetCreatedAt(&t)
 	}
+}
+func clearDir() {
+	_, err := os.Stat(opt.WorkDir)
+	if err == nil {
+		os.RemoveAll(opt.WorkDir)
+	}
+	os.Mkdir(opt.WorkDir, os.ModePerm)
 }
