@@ -44,6 +44,19 @@ func FID(name string) uint64 {
 	return uint64(id)
 }
 
+func VlogFilePath(dirPath string, fid uint32) string {
+	return fmt.Sprintf("%s%s%05d.vlog", dirPath, string(os.PathSeparator), fid)
+}
+
+// CreateSyncedFile creates a new file (using O_EXCL), errors if it already existed.
+func CreateSyncedFile(filename string, sync bool) (*os.File, error) {
+	flags := os.O_RDWR | os.O_CREATE | os.O_EXCL
+	if sync {
+		flags |= datasyncFileFlag
+	}
+	return os.OpenFile(filename, flags, 0600)
+}
+
 // FileNameSSTable  sst 文件名
 func FileNameSSTable(dir string, id uint64) string {
 	return filepath.Join(dir, fmt.Sprintf("%05d.sst", id))

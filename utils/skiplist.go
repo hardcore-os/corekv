@@ -84,7 +84,9 @@ func (list *SkipList) Add(data *Entry) error {
 	score := calcScore(data.Key)
 	var elem *Element
 	value := ValueStruct{
-		Value: data.Value,
+		Value:     data.Value,
+		Meta:      data.Meta,
+		ExpiresAt: data.ExpiresAt,
 	}
 
 	//从当前最大高度开始
@@ -126,7 +128,7 @@ func (list *SkipList) Add(data *Entry) error {
 
 	level := list.randLevel()
 
-	elem = newElement(list.arena, data.Key, ValueStruct{Value: data.Value}, level)
+	elem = newElement(list.arena, data.Key, value, level)
 	//to add elem to the skiplist
 	off := list.arena.getElementOffset(elem)
 	for i := 0; i < level; i++ {
@@ -154,7 +156,12 @@ func (list *SkipList) Search(key []byte) (e *Entry) {
 			if comp := list.compare(score, key, next); comp <= 0 {
 				if comp == 0 {
 					vo, vSize := decodeValue(next.value)
-					return &Entry{Key: key, Value: list.arena.getVal(vo, vSize).Value}
+					return &Entry{
+						Key:       key,
+						Value:     list.arena.getVal(vo, vSize).Value,
+						Meta:      list.arena.getVal(vo, vSize).Meta,
+						ExpiresAt: list.arena.getVal(vo, vSize).ExpiresAt,
+					}
 				}
 				break
 			}
@@ -254,6 +261,7 @@ func (iter *SkipListIter) Item() Item {
 		Key:       iter.list.arena.getKey(iter.elem.keyOffset, iter.elem.keySize),
 		Value:     iter.list.arena.getVal(vo, vs).Value,
 		ExpiresAt: iter.list.arena.getVal(vo, vs).ExpiresAt,
+		Meta:      iter.list.arena.getVal(vo, vs).Meta,
 	}
 }
 func (iter *SkipListIter) Close() error {

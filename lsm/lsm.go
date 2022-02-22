@@ -89,8 +89,7 @@ func (lsm *LSM) Set(entry *utils.Entry) (err error) {
 	// 否则写入当前memtable中
 	if int64(lsm.memTable.wal.Size())+
 		int64(utils.EstimateWalCodecSize(entry)) > lsm.option.MemTableSize {
-		lsm.immutables = append(lsm.immutables, lsm.memTable)
-		lsm.memTable = lsm.NewMemtable()
+		lsm.Rotate()
 	}
 
 	if err = lsm.memTable.set(entry); err != nil {
@@ -101,11 +100,12 @@ func (lsm *LSM) Set(entry *utils.Entry) (err error) {
 		if err = lsm.levels.flush(immutable); err != nil {
 			return err
 		}
+		// TODO 这里问题很大，应该是用引用计数的方式回收
 		err = immutable.close()
 		utils.Panic(err)
 	}
 	if len(lsm.immutables) != 0 {
-		// TODO 将lsm的immutables队列置空，这里可以优化一下节省内存空间
+		// TODO 将lsm的immutables队列置空，这里可以优化一下节省内存空间，还可以限制一下immut table的大小为固定值
 		lsm.immutables = make([]*memTable, 0)
 	}
 	return err
@@ -134,4 +134,21 @@ func (lsm *LSM) Get(key []byte) (*utils.Entry, error) {
 	}
 	// 从level manger查询
 	return lsm.levels.Get(key)
+}
+
+func (lsm *LSM) MemSize() int64 {
+	return lsm.memTable.Size()
+}
+
+func (lsm *LSM) MemTableIsNil() bool {
+	return lsm.memTable == nil
+}
+
+func (lsm *LSM) GetSkipListFromMemTable() *utils.SkipList {
+	return lsm.memTable.sl
+}
+
+func (lsm *LSM) Rotate() {
+	lsm.immutables = append(lsm.immutables, lsm.memTable)
+	lsm.memTable = lsm.NewMemtable()
 }
