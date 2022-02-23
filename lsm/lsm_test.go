@@ -23,7 +23,7 @@ func TestLevels(t *testing.T) {
 	}
 	// 初始化opt
 	opt := &Options{
-		"../work_test",
+		WorkDir:"../work_test",
 	}
 	levelLive := func() {
 		// 初始化
