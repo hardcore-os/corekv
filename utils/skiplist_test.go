@@ -39,7 +39,7 @@ func TestSkipList_compare(t *testing.T) {
 		score:  byte2score,
 	}
 
-	assert.Equal(t, list.compare(byte1score, byte1, elem), -1)
+	assert.Equal(t, -1, list.compare(byte1score, byte1, elem))
 }
 
 func TestSkipListBasicCRUD(t *testing.T) {
@@ -72,9 +72,9 @@ func Benchmark_SkipListBasicCRUD(b *testing.B) {
 		key, val = fmt.Sprintf("Key%d", i), fmt.Sprintf("Val%d", i)
 		entry := codec.NewEntry([]byte(key), []byte(val))
 		res := list.Add(entry)
-		assert.Equal(b, res, nil)
+		assert.Equal(b, nil, res)
 		searchVal := list.Search([]byte(key))
-		assert.Equal(b, searchVal.Value, []byte(val))
+		assert.Equal(b, []byte(val), searchVal.Value)
 
 	}
 }
