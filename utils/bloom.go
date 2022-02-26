@@ -25,7 +25,7 @@ func (f Filter) MayContainKey(k []byte) bool {
 // MayContain returns whether the filter may contain given key. False positives
 // are possible, where it returns true for keys not in the original set.
 func (f Filter) MayContain(h uint32) bool {
-	//Implment me here!!!
+	//Implement me here!!!
 	//在这里实现判断一个数据是否在bloom过滤器中
 	//思路大概是经过K个Hash函数计算，判读对应位置是否被标记为1
 	return true
@@ -43,21 +43,21 @@ func NewFilter(keys []uint32, bitsPerKey int) Filter {
 // BloomBitsPerKey returns the bits per key required by bloomfilter based on
 // the false positive rate.
 func BloomBitsPerKey(numEntries int, fp float64) int {
-	//Implment me here!!!
+	//Implement me here!!!
 	//阅读bloom论文实现，并在这里编写公式
 	//传入参数numEntries是bloom中存储的数据个数，fp是false positive假阳性率
 	return 0
 }
 
 func appendFilter(keys []uint32, bitsPerKey int) []byte {
-	//Implment me here!!!
-	//在这里实现将一个Key值放入到bloom过滤器中
+	//Implement me here!!!
+	//在这里实现将多个Key值放入到bloom过滤器中
 	return make([]byte, 0)
 }
 
 // Hash implements a hashing algorithm similar to the Murmur hash.
 func Hash(b []byte) uint32 {
-	//Implment me here!!!
+	//Implement me here!!!
 	//在这里实现高效的HashFunction
 	return 0
 }
