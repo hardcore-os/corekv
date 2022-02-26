@@ -51,7 +51,7 @@ func BloomBitsPerKey(numEntries int, fp float64) int {
 
 func appendFilter(keys []uint32, bitsPerKey int) []byte {
 	//Implement me here!!!
-	//在这里实现将一个Key值放入到bloom过滤器中
+	//在这里实现将多个Key值放入到bloom过滤器中
 	return make([]byte, 0)
 }
 
