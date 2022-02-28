@@ -64,8 +64,6 @@ func (p ValuePtr) Encode() []byte {
 // Decode decodes the value pointer into the provided byte buffer.
 func (p *ValuePtr) Decode(b []byte) {
 	// Copy over data from b into p. Using *p=unsafe.pointer(...) leads to
-	// pointer alignment issues. See https://github.com/dgraph-io/badger/issues/1096
-	// and comment https://github.com/dgraph-io/badger/pull/1097#pullrequestreview-307361714
 	copy(((*[vptrSize]byte)(unsafe.Pointer(p))[:]), b[:vptrSize])
 }
 func IsValuePtr(e *Entry) bool {

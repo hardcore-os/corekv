@@ -37,12 +37,14 @@ var (
 )
 
 func TestVlogBase(t *testing.T) {
-	//clearDir()
+	// 清理目录
+	clearDir()
+	// 打开DB
 	db := Open(opt)
 	defer db.Close()
 	log := db.vlog
 	var err error
-	// Use value big enough that the value log writes them even if SyncWrites is false.
+	// 创建一个简单的kv entry对象
 	const val1 = "sampleval012345678901234567890123"
 	const val2 = "samplevalb012345678901234567890123"
 	require.True(t, int64(len(val1)) >= db.opt.ValueThreshold)
@@ -58,22 +60,30 @@ func TestVlogBase(t *testing.T) {
 		Meta:  utils.BitValuePointer,
 	}
 
+	// 构建一个批量请求的request
 	b := new(request)
 	b.Entries = []*utils.Entry{e1, e2}
 
+	// 直接写入vlog中
 	log.write([]*request{b})
 	require.Len(t, b.Ptrs, 2)
 	t.Logf("Pointer written: %+v %+v\n", b.Ptrs[0], b.Ptrs[1])
+
+	// 从vlog中使用 value ptr指针中查询写入的分段vlog文件
 	buf1, lf1, err1 := log.readValueBytes(b.Ptrs[0])
 	buf2, lf2, err2 := log.readValueBytes(b.Ptrs[1])
 	require.NoError(t, err1)
 	require.NoError(t, err2)
+	// 关闭会调的锁
 	defer utils.RunCallback(log.getUnlockCallback(lf1))
 	defer utils.RunCallback((log.getUnlockCallback(lf2)))
 	e1, err = lf1.DecodeEntry(buf1, b.Ptrs[0].Offset)
 	require.NoError(t, err)
+	// 从vlog文件中通过指指针反序列化回 entry对象
 	e2, err = lf1.DecodeEntry(buf2, b.Ptrs[1].Offset)
 	require.NoError(t, err)
+
+	// 比较entry对象是否相等
 	readEntries := []utils.Entry{*e1, *e2}
 	require.EqualValues(t, []utils.Entry{
 		{

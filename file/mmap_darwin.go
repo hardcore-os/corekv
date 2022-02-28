@@ -1,3 +1,4 @@
+//go:build darwin
 // +build darwin
 
 // Copyright 2021 hardcore-os Project Authors
@@ -150,7 +151,7 @@ func (m *MmapFile) AllocateSlice(sz, offset int) ([]byte, int, error) {
 
 	binary.BigEndian.PutUint32(m.Data[offset:], uint32(sz))
 	return m.Data[start : start+sz], start + sz, nil
-}
+}YO
 
 func (m *MmapFile) Sync() error {
 	if m == nil {
@@ -160,8 +161,6 @@ func (m *MmapFile) Sync() error {
 }
 
 func (m *MmapFile) Delete() error {
-	// Badger can set the m.Data directly, without setting any Fd. In that case, this should be a
-	// NOOP.
 	if m.Fd == nil {
 		return nil
 	}
