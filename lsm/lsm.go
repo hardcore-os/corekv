@@ -32,6 +32,8 @@ type Options struct {
 	BaseTableSize       int64
 	NumLevelZeroTables  int
 	MaxLevelNum         int
+
+	DiscardStatsCh *chan map[uint32]int64
 }
 
 // Close  _

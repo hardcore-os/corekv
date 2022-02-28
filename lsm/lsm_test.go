@@ -285,6 +285,8 @@ func baseTest(t *testing.T, lsm *LSM, n int) {
 // 驱动模块
 func buildLSM() *LSM {
 	// init DB Basic Test
+	c := make(chan map[uint32]int64, 16)
+	opt.DiscardStatsCh = &c
 	lsm := NewLSM(opt)
 	return lsm
 }

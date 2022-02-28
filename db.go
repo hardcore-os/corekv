@@ -40,7 +40,7 @@ type (
 )
 
 var (
-	head = []byte("!badger!head") // For storing value offset for replay.
+	head = []byte("!corekv!head") // For storing value offset for replay.
 )
 
 /**
@@ -61,6 +61,8 @@ NumCompactors:       3,
 func Open(opt *Options) *DB {
 	c := utils.NewCloser()
 	db := &DB{opt: opt}
+	// 初始化vlog结构
+	db.initVLog()
 	// 初始化LSM结构
 	db.lsm = lsm.NewLSM(&lsm.Options{
 		WorkDir:             opt.WorkDir,
@@ -75,9 +77,8 @@ func Open(opt *Options) *DB {
 		NumLevelZeroTables:  15,
 		MaxLevelNum:         7,
 		NumCompactors:       3,
+		DiscardStatsCh:      &(db.vlog.lfDiscardStats.flushChan),
 	})
-	// 初始化vlog结构
-	db.initVLog()
 	// 初始化统计信息
 	db.stats = newStats(opt)
 	// 启动 sstable 的合并压缩过程
@@ -216,8 +217,6 @@ func (db *DB) sendToWriteCh(entries []*utils.Entry) (*request, error) {
 	return req, nil
 }
 
-// batchSet applies a list of badger.Entry. If a request level error occurs it
-// will be returned.
 //   Check(kv.BatchSet(entries))
 func (db *DB) batchSet(entries []*utils.Entry) error {
 	req, err := db.sendToWriteCh(entries)
@@ -330,9 +329,6 @@ func (db *DB) writeRequests(reqs []*request) error {
 	return nil
 }
 func (db *DB) writeToLSM(b *request) error {
-	// We should check the length of b.Prts and b.Entries only when badger is not
-	// running in InMemory mode. In InMemory mode, we don't write anything to the
-	// value log and that's why the length of b.Ptrs will always be zero.
 	if len(b.Ptrs) != len(b.Entries) {
 		return errors.Errorf("Ptrs and Entries don't match: %+v", b)
 	}
@@ -381,7 +377,6 @@ func (db *DB) pushHead(ft flushTask) error {
 		return errors.New("Head should not be zero")
 	}
 
-	// Store badger head even if vptr is zero, need it for readTs
 	fmt.Printf("Storing value log head: %+v\n", ft.vptr)
 	val := ft.vptr.Encode()
 
