@@ -151,7 +151,7 @@ func (m *MmapFile) AllocateSlice(sz, offset int) ([]byte, int, error) {
 
 	binary.BigEndian.PutUint32(m.Data[offset:], uint32(sz))
 	return m.Data[start : start+sz], start + sz, nil
-}YO
+}
 
 func (m *MmapFile) Sync() error {
 	if m == nil {
