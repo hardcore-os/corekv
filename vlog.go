@@ -1179,7 +1179,7 @@ func (vlog *valueLog) sample(samp *sampler, discardRatio float64) (*reason, erro
 	sizePercent := samp.sizeRatio
 	countPercent := samp.countRatio
 	fileSize := samp.lf.Size()
-	// Set up the sampling window sizes.
+	// Set up the sampling winxdow sizes.
 	sizeWindow := float64(fileSize) * sizePercent
 	sizeWindowM := sizeWindow / (1 << 20) // in MBs.
 	countWindow := int(float64(vlog.opt.ValueLogMaxEntries) * countPercent)
@@ -1189,9 +1189,9 @@ func (vlog *valueLog) sample(samp *sampler, discardRatio float64) (*reason, erro
 	// Skip data only if fromBeginning is set to false. Pick a random start point.
 	if !samp.fromBeginning {
 		// Pick a random start point for the log.
-		skipFirstM := float64(rand.Int63n(fileSize)) // Pick a random starting location.
-		skipFirstM -= sizeWindow                     // Avoid hitting EOF by moving back by window.
-		skipFirstM /= float64(utils.Mi)              // Convert to MBs.
+		skipFirstM = float64(rand.Int63n(fileSize)) // Pick a random starting location.
+		skipFirstM -= sizeWindow                    // Avoid hitting EOF by moving back by window.
+		skipFirstM /= float64(utils.Mi)             // Convert to MBs.
 	}
 	var skipped float64
 
@@ -1241,29 +1241,6 @@ func (vlog *valueLog) sample(samp *sampler, discardRatio float64) (*reason, erro
 			// Value is present in a later offset, but in the same log.
 			r.discard += esz
 			return nil
-		}
-		if vp.Fid == samp.lf.FID && vp.Offset == e.Offset {
-			// This is still the active entry. This would need to be rewritten.
-		} else {
-			// 这种情况似乎不会发生
-			// Todo(ibrahim): Can this ever happen? See the else in rewrite function.
-			// buf, lf, err := vlog.readValueBytes(vp)
-			// // we need to decide, whether to unlock the lock file immediately based on the
-			// // loading mode. getUnlockCallback will take care of it.
-			// cb := vlog.getUnlockCallback(lf)
-			// if err != nil {
-			// 	utils.RunCallback(cb)
-			// 	return utils.ErrStop
-			// }
-			// ret, err := lf.DecodeEntry(buf, vp.Offset)
-			// if err != nil {
-			// 	utils.RunCallback(cb)
-			// 	return utils.ErrStop
-			// }
-			// fmt.Println("Latest Entry Header in LSM")
-			// utils.RunCallback(cb)
-			// return errors.Errorf("This shouldn't happen. Latest Pointer:%+v. Meta:%v.",
-			// 	vp, entry.Meta)
 		}
 		return nil
 	})
