@@ -446,7 +446,7 @@ func (itr *blockIterator) setIdx(i int) {
 	valueOff := headerSize + h.diff
 	diffKey := entryData[headerSize:valueOff]
 	itr.key = append(itr.key[:h.overlap], diffKey...)
-	e := utils.NewEntry(itr.key, nil)
+	e := &utils.Entry{Key: itr.key}
 	val := &utils.ValueStruct{}
 	val.DecodeValue(entryData[valueOff:])
 	itr.val = val.Value

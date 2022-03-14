@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"bytes"
 	"sync"
 )
 
@@ -201,7 +200,7 @@ func calcScore(key []byte) (score float64) {
 
 func (list *SkipList) compare(score float64, key []byte, next *Element) int {
 	if score == next.score {
-		return bytes.Compare(key, next.key(list.arena))
+		return CompareKeys(key, next.key(list.arena))
 	}
 
 	if score < next.score {

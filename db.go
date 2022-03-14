@@ -68,23 +68,22 @@ func Open(opt *Options) *DB {
 		WorkDir:             opt.WorkDir,
 		MemTableSize:        opt.MemTableSize,
 		SSTableMaxSz:        opt.SSTableMaxSz,
-		BlockSize:           4 * 1024,
+		BlockSize:           8 * 1024,
 		BloomFalsePositive:  0, //0.01,
 		BaseLevelSize:       10 << 20,
 		LevelSizeMultiplier: 10,
-		BaseTableSize:       2 << 20,
+		BaseTableSize:       5 << 20,
 		TableSizeMultiplier: 2,
 		NumLevelZeroTables:  15,
 		MaxLevelNum:         7,
-		NumCompactors:       3,
+		NumCompactors:       1,
 		DiscardStatsCh:      &(db.vlog.lfDiscardStats.flushChan),
 	})
 	// 初始化统计信息
 	db.stats = newStats(opt)
 	// 启动 sstable 的合并压缩过程
 	go db.lsm.StartCompacter()
-	// 启动 vlog gc 过程
-	go db.vlog.startGC()
+	// 准备vlog gc
 	c.Add(1)
 	db.writeCh = make(chan *request)
 	db.flushChan = make(chan flushTask, 16)
@@ -117,12 +116,16 @@ func (db *DB) Del(key []byte) error {
 	})
 }
 func (db *DB) Set(data *utils.Entry) error {
+	if data == nil || len(data.Key) == 0 {
+		return utils.ErrEmptyKey
+	}
 	// 做一些必要性的检查
 	// 如果value 大于一个阈值 则创建值指针，并将其写入vlog中
 	var (
 		vp  *utils.ValuePtr
 		err error
 	)
+	data.Key = utils.KeyWithTs(data.Key, utils.NewCurVersion())
 	// 如果value不应该直接写入LSM 则先写入 vlog文件，这时必须保证vlog具有重放功能
 	// 以便于崩溃后恢复数据
 	if !db.shouldWriteValueToLSM(data) {
@@ -135,10 +138,14 @@ func (db *DB) Set(data *utils.Entry) error {
 	return db.lsm.Set(data)
 }
 func (db *DB) Get(key []byte) (*utils.Entry, error) {
+	if len(key) == 0 {
+		return nil, utils.ErrEmptyKey
+	}
 	var (
 		entry *utils.Entry
 		err   error
 	)
+	key = utils.KeyWithTs(key, utils.NewCurVersion())
 	// 从LSM中查询entry，这时不确定entry是不是值指针
 	if entry, err = db.lsm.Get(key); err != nil {
 		return entry, err
@@ -154,6 +161,7 @@ func (db *DB) Get(key []byte) (*utils.Entry, error) {
 		}
 		entry.Value = utils.SafeCopy(nil, result)
 	}
+	entry.Key = utils.ParseKey(entry.Key)
 	return entry, nil
 }
 func (db *DB) Info() *Stats {

@@ -27,11 +27,11 @@ var (
 	// 初始化opt
 	opt = &Options{
 		WorkDir:          "./work_test",
-		SSTableMaxSz:     1024,
-		MemTableSize:     1024,
-		ValueLogFileSize: 1024 * 10,
+		SSTableMaxSz:     1 << 20,
+		MemTableSize:     1 << 20,
+		ValueLogFileSize: 1 << 20,
 		ValueThreshold:   0,
-		MaxBatchCount:    10000,
+		MaxBatchCount:    10,
 		MaxBatchSize:     1 << 20,
 	}
 )
