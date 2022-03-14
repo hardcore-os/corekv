@@ -85,7 +85,7 @@ func (lm *levelManager) runCompacter(id int) {
 		randomDelay.Stop()
 		return
 	}
-	ticker := time.NewTicker(50 * time.Millisecond)
+	ticker := time.NewTicker(50000 * time.Millisecond)
 	defer ticker.Stop()
 	for {
 		select {
