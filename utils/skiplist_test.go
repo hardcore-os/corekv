@@ -54,7 +54,7 @@ func TestSkipListBasicCRUD(t *testing.T) {
 }
 
 func Benchmark_SkipListBasicCRUD(b *testing.B) {
-	list := NewSkipList(1000)
+	list := NewSkipList(100000000)
 	key, val := "", ""
 	maxTime := 1000000
 	for i := 0; i < maxTime; i++ {

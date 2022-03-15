@@ -81,6 +81,9 @@ func (lsm *LSM) StartCompacter() {
 
 // Set _
 func (lsm *LSM) Set(entry *utils.Entry) (err error) {
+	if entry == nil || len(entry.Key) == 0 {
+		return utils.ErrEmptyKey
+	}
 	// 优雅关闭
 	lsm.closer.Add(1)
 	defer lsm.closer.Done()

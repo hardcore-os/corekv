@@ -60,7 +60,7 @@ func FuzzAPI(f *testing.F) {
 	clearDir()
 	db := Open(opt)
 	opt.ValueLogFileSize = 1 << 20
-	opt.ValueThreshold = 1 << 30
+	opt.ValueThreshold = 1 << 10
 	defer func() { _ = db.Close() }()
 	// 运行 fuzz 引擎，不断生成测试用例进行测试
 	f.Fuzz(func(t *testing.T, key, value []byte) {

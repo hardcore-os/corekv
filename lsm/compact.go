@@ -85,6 +85,7 @@ func (lm *levelManager) runCompacter(id int) {
 		randomDelay.Stop()
 		return
 	}
+	//TODO 这个值有待验证
 	ticker := time.NewTicker(50000 * time.Millisecond)
 	defer ticker.Stop()
 	for {
