@@ -125,7 +125,7 @@ func (db *DB) Set(data *utils.Entry) error {
 		vp  *utils.ValuePtr
 		err error
 	)
-	data.Key = utils.KeyWithTs(data.Key, utils.NewCurVersion())
+	data.Key = utils.KeyWithTs(data.Key, math.MaxUint32)
 	// 如果value不应该直接写入LSM 则先写入 vlog文件，这时必须保证vlog具有重放功能
 	// 以便于崩溃后恢复数据
 	if !db.shouldWriteValueToLSM(data) {
@@ -145,7 +145,7 @@ func (db *DB) Get(key []byte) (*utils.Entry, error) {
 		entry *utils.Entry
 		err   error
 	)
-	key = utils.KeyWithTs(key, utils.NewCurVersion())
+	key = utils.KeyWithTs(key, math.MaxUint32)
 	// 从LSM中查询entry，这时不确定entry是不是值指针
 	if entry, err = db.lsm.Get(key); err != nil {
 		return entry, err

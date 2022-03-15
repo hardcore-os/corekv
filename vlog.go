@@ -1001,7 +1001,6 @@ func (vlog *valueLog) sync(fid uint32) error {
 	return err
 }
 
-
 // Set
 func (v *valueLog) set(entry *utils.Entry) error {
 	return nil
