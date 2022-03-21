@@ -103,7 +103,7 @@ func newNode(arena *Arena, key []byte, v ValueStruct, height int) *node {
 	keyOffset := arena.putKey(key)
 	val := encodeValue(arena.putVal(v), v.EncodedSize())
 
-	node := arena.getElement(nodeOffset)
+	node := arena.getNode(nodeOffset)
 	node.keyOffset = keyOffset
 	node.keySize = uint16(len(key))
 	node.height = uint16(height)
@@ -125,7 +125,7 @@ func decodeValue(value uint64) (valOffset uint32, valSize uint32) {
 func NewSkiplist(arenaSize int64) *Skiplist {
 	arena := newArena(arenaSize)
 	head := newNode(arena, nil, ValueStruct{}, maxHeight)
-	ho := arena.getElementOffset(head)
+	ho := arena.getNodeOffset(head)
 	return &Skiplist{
 		height:     1,
 		headOffset: ho,
@@ -171,11 +171,11 @@ func (s *Skiplist) randomHeight() int {
 }
 
 func (s *Skiplist) getNext(nd *node, height int) *node {
-	return s.arena.getElement(nd.getNextOffset(height))
+	return s.arena.getNode(nd.getNextOffset(height))
 }
 
 func (s *Skiplist) getHead() *node {
-	return s.arena.getElement(s.headOffset)
+	return s.arena.getNode(s.headOffset)
 }
 
 // findNear finds the node near to key.
@@ -259,9 +259,9 @@ func (s *Skiplist) findNear(key []byte, less bool, allowEqual bool) (*node, bool
 func (s *Skiplist) findSpliceForLevel(key []byte, before uint32, level int) (uint32, uint32) {
 	for {
 		// Assume before.key < key.
-		beforeNode := s.arena.getElement(before)
+		beforeNode := s.arena.getNode(before)
 		next := beforeNode.getNextOffset(level)
-		nextNode := s.arena.getElement(next)
+		nextNode := s.arena.getNode(next)
 		if nextNode == nil {
 			return before, next
 		}
@@ -304,7 +304,7 @@ func (s *Skiplist) Add(e *Entry) {
 		if prev[i] == next[i] {
 			vo := s.arena.putVal(v)
 			encValue := encodeValue(vo, v.EncodedSize())
-			prevNode := s.arena.getElement(prev[i])
+			prevNode := s.arena.getNode(prev[i])
 			prevNode.setValue(s.arena, encValue)
 			return
 		}
@@ -328,7 +328,7 @@ func (s *Skiplist) Add(e *Entry) {
 	// create a node in the level above because it would have discovered the node in the base level.
 	for i := 0; i < height; i++ {
 		for {
-			if s.arena.getElement(prev[i]) == nil {
+			if s.arena.getNode(prev[i]) == nil {
 				AssertTrue(i > 1) // This cannot happen in base level.
 				// We haven't computed prev, next for this level because height exceeds old listHeight.
 				// For these levels, we expect the lists to be sparse, so we can just search from head.
@@ -338,8 +338,8 @@ func (s *Skiplist) Add(e *Entry) {
 				AssertTrue(prev[i] != next[i])
 			}
 			x.tower[i] = next[i]
-			pnode := s.arena.getElement(prev[i])
-			if pnode.casNextOffset(i, next[i], s.arena.getElementOffset(x)) {
+			pnode := s.arena.getNode(prev[i])
+			if pnode.casNextOffset(i, next[i], s.arena.getNodeOffset(x)) {
 				// Managed to insert x between prev[i] and next[i]. Go to the next level.
 				break
 			}
@@ -351,7 +351,7 @@ func (s *Skiplist) Add(e *Entry) {
 				AssertTruef(i == 0, "Equality can happen only on base level: %d", i)
 				vo := s.arena.putVal(v)
 				encValue := encodeValue(vo, v.EncodedSize())
-				prevNode := s.arena.getElement(prev[i])
+				prevNode := s.arena.getNode(prev[i])
 				prevNode.setValue(s.arena, encValue)
 				return
 			}
@@ -412,7 +412,7 @@ func (s *Skiplist) NewSkipListIterator() Iterator {
 
 // MemSize returns the size of the Skiplist in terms of how much memory is used within its internal
 // arena.
-func (s *Skiplist) MemSize() int64 { return s.arena.Size() }
+func (s *Skiplist) MemSize() int64 { return s.arena.size() }
 
 // Iterator is an iterator over skiplist object. For new objects, you just
 // need to initialize Iterator.list.
