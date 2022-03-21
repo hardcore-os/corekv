@@ -12,7 +12,9 @@ type Arena struct {
 	buf []byte
 }
 
-const MaxNodeSize = int(unsafe.Sizeof(Element{}))
+const MaxNodeSize = int(unsafe.Sizeof(node{}))
+
+const defaultMaxLevel = 20
 
 const offsetSize = int(unsafe.Sizeof(uint32(0)))
 const nodeAlign = int(unsafe.Sizeof(uint64(0))) - 1
@@ -76,12 +78,12 @@ func (s *Arena) putKey(key []byte) uint32 {
 	return offset
 }
 
-func (s *Arena) getElement(offset uint32) *Element {
+func (s *Arena) getElement(offset uint32) *node {
 	if offset == 0 {
 		return nil
 	}
 
-	return (*Element)(unsafe.Pointer(&s.buf[offset]))
+	return (*node)(unsafe.Pointer(&s.buf[offset]))
 }
 
 func (s *Arena) getKey(offset uint32, size uint16) []byte {
@@ -94,16 +96,12 @@ func (s *Arena) getVal(offset uint32, size uint32) (v ValueStruct) {
 }
 
 //用element在内存中的地址 - arena首字节的内存地址，得到在arena中的偏移量
-func (s *Arena) getElementOffset(nd *Element) uint32 {
+func (s *Arena) getElementOffset(nd *node) uint32 {
 	if nd == nil {
 		return 0
 	}
 
 	return uint32(uintptr(unsafe.Pointer(nd)) - uintptr(unsafe.Pointer(&s.buf[0])))
-}
-
-func (e *Element) getNextOffset(h int) uint32 {
-	return atomic.LoadUint32(&e.levels[h])
 }
 
 func (s *Arena) Size() int64 {

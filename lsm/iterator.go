@@ -35,15 +35,15 @@ func (it *Item) Entry() *utils.Entry {
 }
 
 // 创建迭代器
-func (lsm *LSM) NewIterator(opt *utils.Options) utils.Iterator {
+func (lsm *LSM) NewIterators(opt *utils.Options) []utils.Iterator {
 	iter := &Iterator{}
 	iter.iters = make([]utils.Iterator, 0)
 	iter.iters = append(iter.iters, lsm.memTable.NewIterator(opt))
 	for _, imm := range lsm.immutables {
 		iter.iters = append(iter.iters, imm.NewIterator(opt))
 	}
-	iter.iters = append(iter.iters, lsm.levels.NewIterator(opt))
-	return iter
+	iter.iters = append(iter.iters, lsm.levels.iterators()...)
+	return iter.iters
 }
 func (iter *Iterator) Next() {
 	iter.iters[0].Next()
@@ -96,8 +96,8 @@ type levelIterator struct {
 	iters []*Iterator
 }
 
-func (lm *levelManager) NewIterator(options *utils.Options) utils.Iterator {
-	return &levelIterator{}
+func (lm *levelManager) NewIterators(options *utils.Options) []utils.Iterator {
+	return lm.iterators()
 }
 func (iter *levelIterator) Next() {
 }

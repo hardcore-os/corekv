@@ -23,6 +23,8 @@ type ValueStruct struct {
 	Meta      byte
 	Value     []byte
 	ExpiresAt uint64
+
+	Version uint64 // This field is not serialized. Only for internal usage.
 }
 
 // value只持久化具体的value值和过期时间
@@ -84,6 +86,18 @@ func NewEntry(key, value []byte) *Entry {
 // Entry_
 func (e *Entry) Entry() *Entry {
 	return e
+}
+
+func (e *Entry) IsDeletedOrExpired() bool {
+	if e.Value == nil {
+		return true
+	}
+
+	if e.ExpiresAt == 0 {
+		return false
+	}
+
+	return e.ExpiresAt <= uint64(time.Now().Unix())
 }
 
 // WithTTL _

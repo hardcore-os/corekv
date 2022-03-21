@@ -36,7 +36,7 @@ const walFileExt string = ".wal"
 type memTable struct {
 	lsm        *LSM
 	wal        *file.WalFile
-	sl         *utils.SkipList
+	sl         *utils.Skiplist
 	buf        *bytes.Buffer
 	maxVersion uint64
 }
@@ -51,7 +51,7 @@ func (lsm *LSM) NewMemtable() *memTable {
 		FID:      newFid,
 		FileName: mtFilePath(lsm.option.WorkDir, newFid),
 	}
-	return &memTable{wal: file.OpenWalFile(fileOpt), sl: utils.NewSkipList(int64(1 << 20)), lsm: lsm}
+	return &memTable{wal: file.OpenWalFile(fileOpt), sl: utils.NewSkiplist(int64(1 << 20)), lsm: lsm}
 }
 
 // Close
@@ -59,9 +59,7 @@ func (m *memTable) close() error {
 	if err := m.wal.Close(); err != nil {
 		return err
 	}
-	if err := m.sl.Close(); err != nil {
-		return err
-	}
+
 	return nil
 }
 
@@ -71,20 +69,29 @@ func (m *memTable) set(entry *utils.Entry) error {
 		return err
 	}
 	// 写到memtable中
-	if err := m.sl.Add(entry); err != nil {
-		return err
-	}
+	m.sl.Add(entry)
 	return nil
 }
 
 func (m *memTable) Get(key []byte) (*utils.Entry, error) {
 	// 索引检查当前的key是否在表中 O(1) 的时间复杂度
 	// 从内存表中获取数据
-	return m.sl.Search(key), nil
+	vs := m.sl.Search(key)
+
+	e := &utils.Entry{
+		Key:       key,
+		Value:     vs.Value,
+		ExpiresAt: vs.ExpiresAt,
+		Meta:      vs.Meta,
+		Version:   vs.Version,
+	}
+
+	return e, nil
+
 }
 
 func (m *memTable) Size() int64 {
-	return m.sl.Size()
+	return m.sl.MemSize()
 }
 
 //recovery
@@ -123,7 +130,7 @@ func (lsm *LSM) recovery() (*memTable, []*memTable) {
 	for _, fid := range fids {
 		mt, err := lsm.openMemTable(fid)
 		utils.CondPanic(err != nil, err)
-		if mt.sl.Size() == 0 {
+		if mt.sl.MemSize() == 0 {
 			// mt.DecrRef()
 			continue
 		}
@@ -143,7 +150,7 @@ func (lsm *LSM) openMemTable(fid uint64) (*memTable, error) {
 		FID:      fid,
 		FileName: mtFilePath(lsm.option.WorkDir, fid),
 	}
-	s := utils.NewSkipList(int64(1 << 20))
+	s := utils.NewSkiplist(int64(1 << 20))
 	mt := &memTable{
 		sl:  s,
 		buf: &bytes.Buffer{},
@@ -177,6 +184,7 @@ func (m *memTable) replayFunction(opt *Options) func(*utils.Entry, *utils.ValueP
 		if ts := utils.ParseTs(e.Key); ts > m.maxVersion {
 			m.maxVersion = ts
 		}
-		return m.sl.Add(e)
+		m.sl.Add(e)
+		return nil
 	}
 }

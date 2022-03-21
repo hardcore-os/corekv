@@ -146,7 +146,7 @@ func (lsm *LSM) MemTableIsNil() bool {
 	return lsm.memTable == nil
 }
 
-func (lsm *LSM) GetSkipListFromMemTable() *utils.SkipList {
+func (lsm *LSM) GetSkipListFromMemTable() *utils.Skiplist {
 	return lsm.memTable.sl
 }
 
