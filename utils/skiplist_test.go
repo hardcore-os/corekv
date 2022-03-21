@@ -36,27 +36,32 @@ func TestSkipListBasicCRUD(t *testing.T) {
 	list := NewSkiplist(1000)
 
 	//Put & Get
-	entry1 := NewEntry([]byte("Key1"), []byte("Val1"))
-	assert.Equal(t, entry1.Value, list.Search(entry1.Key).Value)
+	entry1 := NewEntry([]byte(RandString(10)), []byte("Val1"))
+	list.Add(entry1)
+	vs := list.Search(entry1.Key)
+	assert.Equal(t, entry1.Value, vs.Value)
 
-	entry2 := NewEntry([]byte("Key2"), []byte("Val2"))
-	assert.Equal(t, entry2.Value, list.Search(entry2.Key).Value)
+	entry2 := NewEntry([]byte(RandString(10)), []byte("Val2"))
+	list.Add(entry2)
+	vs = list.Search(entry2.Key)
+	assert.Equal(t, entry2.Value, vs.Value)
 
 	//Get a not exist entry
-	assert.Nil(t, list.Search([]byte("noexist")))
+	assert.Nil(t, list.Search([]byte(RandString(10))).Value)
 
 	//Update a entry
-	entry2_new := NewEntry([]byte("Key1"), []byte("Val1+1"))
+	entry2_new := NewEntry([]byte(RandString(10)), []byte("Val1+1"))
+	list.Add(entry2_new)
 	assert.Equal(t, entry2_new.Value, list.Search(entry2_new.Key).Value)
 }
 
 func Benchmark_SkipListBasicCRUD(b *testing.B) {
 	list := NewSkiplist(100000000)
 	key, val := "", ""
-	maxTime := 1000000
+	maxTime := 1000
 	for i := 0; i < maxTime; i++ {
 		//number := rand.Intn(10000)
-		key, val = fmt.Sprintf("Key%d", i), fmt.Sprintf("Val%d", i)
+		key, val = RandString(10), fmt.Sprintf("Val%d", i)
 		entry := NewEntry([]byte(key), []byte(val))
 		list.Add(entry)
 		searchVal := list.Search([]byte(key))
@@ -66,10 +71,10 @@ func Benchmark_SkipListBasicCRUD(b *testing.B) {
 
 func TestConcurrentBasic(t *testing.T) {
 	const n = 1000
-	l := NewSkiplist(1000)
+	l := NewSkiplist(100000000)
 	var wg sync.WaitGroup
 	key := func(i int) []byte {
-		return []byte(fmt.Sprintf("%05d", i))
+		return []byte(fmt.Sprintf("Keykeykey%05d", i))
 	}
 	for i := 0; i < n; i++ {
 		wg.Add(1)
@@ -97,10 +102,10 @@ func TestConcurrentBasic(t *testing.T) {
 
 func Benchmark_ConcurrentBasic(b *testing.B) {
 	const n = 1000
-	l := NewSkiplist(1)
+	l := NewSkiplist(100000000)
 	var wg sync.WaitGroup
 	key := func(i int) []byte {
-		return []byte(fmt.Sprintf("%05d", i))
+		return []byte(fmt.Sprintf("keykeykey%05d", i))
 	}
 	for i := 0; i < n; i++ {
 		wg.Add(1)
@@ -125,22 +130,19 @@ func Benchmark_ConcurrentBasic(b *testing.B) {
 }
 
 func TestSkipListIterator(t *testing.T) {
-	list := NewSkiplist(1000)
+	list := NewSkiplist(100000)
 
 	//Put & Get
-	entry1 := NewEntry([]byte("Key1"), []byte("Val1"))
+	entry1 := NewEntry([]byte(RandString(10)), []byte(RandString(10)))
 	list.Add(entry1)
 	assert.Equal(t, entry1.Value, list.Search(entry1.Key).Value)
 
-	entry2 := NewEntry([]byte("Key2"), []byte("Val2"))
+	entry2 := NewEntry([]byte(RandString(10)), []byte(RandString(10)))
 	list.Add(entry2)
 	assert.Equal(t, entry2.Value, list.Search(entry2.Key).Value)
 
-	//Get a not exist entry
-	assert.Nil(t, list.Search([]byte("noexist")))
-
 	//Update a entry
-	entry2_new := NewEntry([]byte("Key1"), []byte("Val1+1"))
+	entry2_new := NewEntry([]byte(RandString(10)), []byte(RandString(10)))
 	list.Add(entry2_new)
 	assert.Equal(t, entry2_new.Value, list.Search(entry2_new.Key).Value)
 
