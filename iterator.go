@@ -42,17 +42,13 @@ func (db *DB) NewIterator(opt *utils.Options) utils.Iterator {
 }
 
 func (iter *DBIterator) Next() {
-	iter.iitr.Next()
-	for ; iter.Valid() && iter.Item() == nil; iter.iitr.Next() {
-	}
+	//implement me here!!!
 }
 func (iter *DBIterator) Valid() bool {
 	return iter.iitr.Valid()
 }
 func (iter *DBIterator) Rewind() {
-	iter.iitr.Rewind()
-	for ; iter.Valid() && iter.Item() == nil; iter.iitr.Next() {
-	}
+	//implement me here!!!
 }
 func (iter *DBIterator) Item() utils.Item {
 	// 检查从lsm拿到的value是否是value ptr,是则从vlog中拿值
