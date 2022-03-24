@@ -125,12 +125,12 @@ func (lsm *LSM) Get(key []byte) (*utils.Entry, error) {
 		err   error
 	)
 	// 从内存表中查询,先查活跃表，在查不变表
-	if entry, err = lsm.memTable.Get(key); entry != nil {
+	if entry, err = lsm.memTable.Get(key); entry != nil && entry.Value != nil {
 		return entry, err
 	}
 
 	for i := len(lsm.immutables) - 1; i >= 0; i-- {
-		if entry, err = lsm.immutables[i].Get(key); entry != nil {
+		if entry, err = lsm.immutables[i].Get(key); entry != nil && entry.Value != nil {
 			return entry, err
 		}
 	}
@@ -146,7 +146,7 @@ func (lsm *LSM) MemTableIsNil() bool {
 	return lsm.memTable == nil
 }
 
-func (lsm *LSM) GetSkipListFromMemTable() *utils.SkipList {
+func (lsm *LSM) GetSkipListFromMemTable() *utils.Skiplist {
 	return lsm.memTable.sl
 }
 

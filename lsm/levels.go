@@ -48,6 +48,15 @@ func (lm *levelManager) close() error {
 	return nil
 }
 
+func (lm *levelManager) iterators() []utils.Iterator {
+
+	itrs := make([]utils.Iterator, 0, len(lm.levels))
+	for _, level := range lm.levels {
+		itrs = append(itrs, level.iterators()...)
+	}
+	return itrs
+}
+
 func (lm *levelManager) Get(key []byte) (*utils.Entry, error) {
 	var (
 		entry *utils.Entry
@@ -330,4 +339,18 @@ func (lh *levelHandler) deleteTables(toDel []*table) error {
 	lh.Unlock() // Unlock s _before_ we DecrRef our tables, which can be slow.
 
 	return decrRefs(toDel)
+}
+
+func (lh *levelHandler) iterators() []utils.Iterator {
+	lh.RLock()
+	defer lh.RUnlock()
+	topt := &utils.Options{IsAsc: true}
+	if lh.levelNum == 0 {
+		return iteratorsReversed(lh.tables, topt)
+	}
+
+	if len(lh.tables) == 0 {
+		return nil
+	}
+	return []utils.Iterator{NewConcatIterator(lh.tables, topt)}
 }
