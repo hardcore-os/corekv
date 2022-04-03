@@ -81,18 +81,19 @@ func (lm *levelManager) runCompacter(id int) {
 	randomDelay := time.NewTimer(time.Duration(rand.Int31n(1000)) * time.Millisecond)
 	select {
 	case <-randomDelay.C:
-	case <-lm.lsm.closer.Wait():
+	case <-lm.lsm.closer.CloseSignal:
 		randomDelay.Stop()
 		return
 	}
-	ticker := time.NewTicker(50 * time.Millisecond)
+	//TODO 这个值有待验证
+	ticker := time.NewTicker(50000 * time.Millisecond)
 	defer ticker.Stop()
 	for {
 		select {
 		// Can add a done channel or other stuff.
 		case <-ticker.C:
 			lm.runOnce(id)
-		case <-lm.lsm.closer.Wait():
+		case <-lm.lsm.closer.CloseSignal:
 			return
 		}
 	}
@@ -490,7 +491,6 @@ func (lm *levelManager) compactBuildTables(lev int, cd compactDef) ([]*table, fu
 		IsAsc: true,
 	}
 	//numTables := int64(len(topTables) + len(botTables))
-
 	newIterator := func() []utils.Iterator {
 		// Create iterators across all the tables involved first.
 		var iters []utils.Iterator
@@ -827,11 +827,29 @@ func iteratorsReversed(th []*table, opt *utils.Options) []utils.Iterator {
 	}
 	return out
 }
+func (lm *levelManager) updateDiscardStats(discardStats map[uint32]int64) {
+	select {
+	case *lm.lsm.option.DiscardStatsCh <- discardStats:
+	default:
+	}
+}
 
 // 真正执行并行压缩的子压缩文件
 func (lm *levelManager) subcompact(it utils.Iterator, kr keyRange, cd compactDef,
 	inflightBuilders *utils.Throttle, res chan<- *table) {
 	var lastKey []byte
+	// 更新 discardStats
+	discardStats := make(map[uint32]int64)
+	defer func() {
+		lm.updateDiscardStats(discardStats)
+	}()
+	updateStats := func(e *utils.Entry) {
+		if e.Meta&utils.BitValuePointer > 0 {
+			var vp utils.ValuePtr
+			vp.Decode(e.Value)
+			discardStats[vp.Fid] += int64(vp.Len)
+		}
+	}
 	addKeys := func(builder *tableBuilder) {
 		var tableKr keyRange
 		for ; it.Valid(); it.Next() {
@@ -861,6 +879,7 @@ func (lm *levelManager) subcompact(it utils.Iterator, kr keyRange, cd compactDef
 			// 判断是否是过期内容，是的话就删除
 			switch {
 			case isExpired:
+				updateStats(it.Item().Entry())
 				builder.AddStaleKey(it.Item().Entry())
 			default:
 				builder.AddKey(it.Item().Entry())

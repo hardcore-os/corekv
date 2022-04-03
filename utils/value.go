@@ -17,6 +17,7 @@ package utils
 import (
 	"encoding/binary"
 	"reflect"
+	"time"
 	"unsafe"
 )
 
@@ -26,6 +27,7 @@ const (
 	// | keyID(8 bytes) |  baseIV(12 bytes)|
 	// +----------------+------------------+
 	ValueLogHeaderSize = 20
+	vptrSize           = unsafe.Sizeof(ValuePtr{})
 )
 
 type ValuePtr struct {
@@ -34,19 +36,38 @@ type ValuePtr struct {
 	Fid    uint32
 }
 
-// NewValuePtr
-func NewValuePtr(entry *Entry) *ValuePtr {
-	return &ValuePtr{}
+func (p ValuePtr) Less(o *ValuePtr) bool {
+	if o == nil {
+		return false
+	}
+	if p.Fid != o.Fid {
+		return p.Fid < o.Fid
+	}
+	if p.Offset != o.Offset {
+		return p.Offset < o.Offset
+	}
+	return p.Len < o.Len
 }
 
-// IsValuePtr
-func IsValuePtr(entry *Entry) bool {
-	return false
+func (p ValuePtr) IsZero() bool {
+	return p.Fid == 0 && p.Offset == 0 && p.Len == 0
 }
 
-// ValuePtrDecode
-func ValuePtrDecode(data []byte) *ValuePtr {
-	return nil
+// Encode encodes Pointer into byte buffer.
+func (p ValuePtr) Encode() []byte {
+	b := make([]byte, vptrSize)
+	// Copy over the content from p to b.
+	*(*ValuePtr)(unsafe.Pointer(&b[0])) = p
+	return b
+}
+
+// Decode decodes the value pointer into the provided byte buffer.
+func (p *ValuePtr) Decode(b []byte) {
+	// Copy over data from b into p. Using *p=unsafe.pointer(...) leads to
+	copy(((*[vptrSize]byte)(unsafe.Pointer(p))[:]), b[:vptrSize])
+}
+func IsValuePtr(e *Entry) bool {
+	return e.Meta&BitValuePointer > 0
 }
 
 // BytesToU32 converts the given byte slice to uint32
@@ -102,4 +123,37 @@ func BytesToU32Slice(b []byte) []uint32 {
 // ValuePtrCodec _
 func ValuePtrCodec(vp *ValuePtr) []byte {
 	return []byte{}
+}
+
+// RunCallback _
+func RunCallback(cb func()) {
+	if cb != nil {
+		cb()
+	}
+}
+
+func IsDeletedOrExpired(meta byte, expiresAt uint64) bool {
+	if meta&BitDelete > 0 {
+		return true
+	}
+	if expiresAt == 0 {
+		return false
+	}
+	return expiresAt <= uint64(time.Now().Unix())
+}
+
+func DiscardEntry(e, vs *Entry) bool {
+	// TODO 版本这个信息应该被弱化掉 在后面上MVCC或者多版本查询的时候再考虑
+	// if vs.Version != ParseTs(e.Key) {
+	// 	// Version not found. Discard.
+	// 	return true
+	// }
+	if IsDeletedOrExpired(vs.Meta, vs.ExpiresAt) {
+		return true
+	}
+	if (vs.Meta & BitValuePointer) == 0 {
+		// Key also stores the value in LSM. Discard.
+		return true
+	}
+	return false
 }

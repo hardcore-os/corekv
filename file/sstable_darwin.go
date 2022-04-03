@@ -1,3 +1,5 @@
+// +build darwin
+
 // Copyright 2021 hardcore-os Project Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License")
@@ -58,7 +60,7 @@ func (ss *SSTable) Init() error {
 	// 从文件中获取创建时间
 	stat, _ := ss.f.Fd.Stat()
 	statType := stat.Sys().(*syscall.Stat_t)
-	ss.createdAt = time.Unix(statType.Ctim.Sec, statType.Ctim.Nsec)
+	ss.createdAt = time.Unix(statType.Atimespec.Sec, statType.Atimespec.Nsec)
 	// init min key
 	keyBytes := ko.GetKey()
 	minKey := make([]byte, len(keyBytes))
@@ -110,6 +112,11 @@ func (ss *SSTable) initTable() (bo *pb.BlockOffset, err error) {
 		return indexTable.GetOffsets()[0], nil
 	}
 	return nil, errors.New("read index fail, offset is nil")
+}
+
+// Close 关闭
+func (ss *SSTable) Close() error {
+	return ss.f.Close()
 }
 
 // Indexs _
@@ -171,6 +178,11 @@ func (ss *SSTable) Size() int64 {
 // GetCreatedAt _
 func (ss *SSTable) GetCreatedAt() *time.Time {
 	return &ss.createdAt
+}
+
+// SetCreatedAt _
+func (ss *SSTable) SetCreatedAt(t *time.Time) {
+	ss.createdAt = *t
 }
 
 // Detele _

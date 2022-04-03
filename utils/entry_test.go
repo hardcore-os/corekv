@@ -1,4 +1,4 @@
-// Copyright 2021 logicrec Project Authors
+// Copyright 2021 hardcore-os Project Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License")
 // you may not use this file except in compliance with the License.
@@ -12,36 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package corekv
+package utils
 
-import "github.com/hardcore-os/corekv/utils"
+import (
+	"testing"
 
-type Stats struct {
-	closer   *utils.Closer
-	EntryNum int64 // 存储多少个kv数据
-}
+	"github.com/stretchr/testify/assert"
+)
 
-// Close
-func (s *Stats) close() error {
-	return nil
-}
-
-// StartStats
-func (s *Stats) StartStats() {
-	defer s.closer.Done()
-	for {
-		select {
-		case <-s.closer.CloseSignal:
-			return
-		}
-		// stats logic...
+func TestValueStruct(t *testing.T) {
+	v := ValueStruct{
+		Value:     []byte("硬核课堂"),
+		Meta:      2,
+		ExpiresAt: 213123123123,
 	}
-}
-
-// NewStats
-func newStats(opt *Options) *Stats {
-	s := &Stats{}
-	s.closer = utils.NewCloser()
-	s.EntryNum = 1 // 这里直接写
-	return s
+	data := make([]byte, v.EncodedSize())
+	v.EncodeValue(data)
+	var vv ValueStruct
+	vv.DecodeValue(data)
+	assert.Equal(t, vv, v)
 }

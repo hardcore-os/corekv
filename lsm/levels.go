@@ -48,6 +48,15 @@ func (lm *levelManager) close() error {
 	return nil
 }
 
+func (lm *levelManager) iterators() []utils.Iterator {
+
+	itrs := make([]utils.Iterator, 0, len(lm.levels))
+	for _, level := range lm.levels {
+		itrs = append(itrs, level.iterators()...)
+	}
+	return itrs
+}
+
 func (lm *levelManager) Get(key []byte) (*utils.Entry, error) {
 	var (
 		entry *utils.Entry
@@ -148,6 +157,11 @@ type levelHandler struct {
 }
 
 func (lh *levelHandler) close() error {
+	for i := range lh.tables {
+		if err := lh.tables[i].ss.Close(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 func (lh *levelHandler) add(t *table) {
@@ -186,11 +200,11 @@ func (lh *levelHandler) numTables() int {
 func (lh *levelHandler) Get(key []byte) (*utils.Entry, error) {
 	// 如果是第0层文件则进行特殊处理
 	if lh.levelNum == 0 {
-		// TODO：logic...
+		// TODO: logic...
 		// 获取可能存在key的sst
 		return lh.searchL0SST(key)
 	} else {
-		// TODO：logic...
+		// TODO: logic...
 		return lh.searchLNSST(key)
 	}
 }
@@ -325,4 +339,18 @@ func (lh *levelHandler) deleteTables(toDel []*table) error {
 	lh.Unlock() // Unlock s _before_ we DecrRef our tables, which can be slow.
 
 	return decrRefs(toDel)
+}
+
+func (lh *levelHandler) iterators() []utils.Iterator {
+	lh.RLock()
+	defer lh.RUnlock()
+	topt := &utils.Options{IsAsc: true}
+	if lh.levelNum == 0 {
+		return iteratorsReversed(lh.tables, topt)
+	}
+
+	if len(lh.tables) == 0 {
+		return nil
+	}
+	return []utils.Iterator{NewConcatIterator(lh.tables, topt)}
 }
