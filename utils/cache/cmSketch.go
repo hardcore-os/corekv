@@ -40,15 +40,7 @@ func (s *cmSketch) Increment(hashed uint64) {
 }
 
 func (s *cmSketch) Estimate(hashed uint64) int64 {
-	min := byte(255)
-	for i := range s.rows {
-		val := s.rows[i].get((hashed ^ s.seed[i]) & s.mask)
-		if val < min {
-			min = val
-		}
-	}
-
-	return int64(min)
+	//implement me here!!!
 }
 
 // Reset halves all counter values.

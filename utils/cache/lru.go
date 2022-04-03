@@ -24,23 +24,9 @@ func newWindowLRU(size int, data map[uint64]*list.Element) *windowLRU {
 }
 
 func (lru *windowLRU) add(newitem storeItem) (eitem storeItem, evicted bool) {
-	if lru.list.Len() < lru.cap {
-		lru.data[newitem.key] = lru.list.PushFront(&newitem)
-		return storeItem{}, false
-	}
-
-	evictItem := lru.list.Back()
-	item := evictItem.Value.(*storeItem)
-
-	delete(lru.data, item.key)
-
-	eitem, *item = *item, newitem
-
-	lru.data[item.key] = evictItem
-	lru.list.MoveToFront(evictItem)
-	return eitem, true
+	//implement me here!!!
 }
 
 func (lru *windowLRU) get(v *list.Element) {
-	lru.list.MoveToFront(v)
+	//implement me here!!!
 }
