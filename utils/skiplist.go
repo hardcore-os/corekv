@@ -297,6 +297,7 @@ func (s *Skiplist) Add(e *Entry) {
 	listHeight := s.getHeight()
 	var prev [maxHeight + 1]uint32
 	var next [maxHeight + 1]uint32
+
 	prev[listHeight] = s.headOffset
 	for i := int(listHeight) - 1; i >= 0; i-- {
 		// Use higher level to speed up for current level.
@@ -446,13 +447,12 @@ func (s *SkipListIterator) Valid() bool { return s.n != nil }
 
 // Key returns the key at the current position.
 func (s *SkipListIterator) Key() []byte {
-	return s.list.arena.getKey(s.n.keyOffset, s.n.keySize)
+	//implement me here
 }
 
 // Value returns value.
 func (s *SkipListIterator) Value() ValueStruct {
-	valOffset, valSize := s.n.getValueOffset()
-	return s.list.arena.getVal(valOffset, valSize)
+	//implement me here
 }
 
 // ValueUint64 returns the uint64 value of the current node.
@@ -472,20 +472,19 @@ func (s *SkipListIterator) Prev() {
 	s.n, _ = s.list.findNear(s.Key(), true, false) // find <. No equality allowed.
 }
 
-// Seek advances to the first entry with a key >= target.
+// 找到 >= target 的第一个节点
 func (s *SkipListIterator) Seek(target []byte) {
-	s.n, _ = s.list.findNear(target, false, true) // find >=.
+	//implement me here
 }
 
-// SeekForPrev finds an entry with key <= target.
+// 找到 <= target 的第一个节点
 func (s *SkipListIterator) SeekForPrev(target []byte) {
-	s.n, _ = s.list.findNear(target, true, true) // find <=.
+	//implement me here
 }
 
-// SeekToFirst seeks position at the first entry in list.
-// Final state of iterator is Valid() iff list is not empty.
+//定位到链表的第一个节点
 func (s *SkipListIterator) SeekToFirst() {
-	s.n = s.list.getNext(s.list.getHead(), 0)
+	//implement me here
 }
 
 // SeekToLast seeks position at the last entry in list.
