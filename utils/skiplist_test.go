@@ -137,7 +137,7 @@ func Benchmark_ConcurrentBasic(b *testing.B) {
 				require.EqualValues(b, key(i), v.Value)
 				return
 			}
-			require.Nil(b, v)
+			require.NotNil(b, v)
 		}(i)
 	}
 	wg.Wait()
