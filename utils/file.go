@@ -125,3 +125,10 @@ func VerifyChecksum(data []byte, expected []byte) error {
 func CalculateChecksum(data []byte) uint64 {
 	return uint64(crc32.Checksum(data, CastagnoliCrcTable))
 }
+
+// RemoveDir _
+func RemoveDir(dir string) {
+	if err := os.RemoveAll(dir); err != nil {
+		panic(err)
+	}
+}
