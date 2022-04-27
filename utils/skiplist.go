@@ -33,9 +33,11 @@ Key differences:
 package utils
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	"log"
 	"math"
+	"strings"
 	"sync/atomic"
 	_ "unsafe"
 )
@@ -134,25 +136,31 @@ func NewSkiplist(arenaSize int64) *Skiplist {
 	}
 }
 
-func (s *node) getValueOffset() (uint32, uint32) {
-	value := atomic.LoadUint64(&s.value)
+func (n *node) getValueOffset() (uint32, uint32) {
+	value := atomic.LoadUint64(&n.value)
 	return decodeValue(value)
 }
 
-func (s *node) key(arena *Arena) []byte {
-	return arena.getKey(s.keyOffset, s.keySize)
+func (n *node) key(arena *Arena) []byte {
+	return arena.getKey(n.keyOffset, n.keySize)
 }
 
-func (s *node) setValue(arena *Arena, vo uint64) {
-	atomic.StoreUint64(&s.value, vo)
+func (n *node) setValue(arena *Arena, vo uint64) {
+	atomic.StoreUint64(&n.value, vo)
 }
 
-func (s *node) getNextOffset(h int) uint32 {
-	return atomic.LoadUint32(&s.tower[h])
+func (n *node) getNextOffset(h int) uint32 {
+	return atomic.LoadUint32(&n.tower[h])
 }
 
-func (s *node) casNextOffset(h int, old, val uint32) bool {
-	return atomic.CompareAndSwapUint32(&s.tower[h], old, val)
+func (n *node) casNextOffset(h int, old, val uint32) bool {
+	return atomic.CompareAndSwapUint32(&n.tower[h], old, val)
+}
+
+// getVs return ValueStruct stored in node
+func (n *node) getVs(arena *Arena) ValueStruct {
+	valOffset, valSize := n.getValueOffset()
+	return arena.getVal(valOffset, valSize)
 }
 
 // Returns true if key is strictly > n.key.
@@ -413,6 +421,59 @@ func (s *Skiplist) NewSkipListIterator() Iterator {
 // MemSize returns the size of the Skiplist in terms of how much memory is used within its internal
 // arena.
 func (s *Skiplist) MemSize() int64 { return s.arena.size() }
+
+// Draw plot Skiplist, align represents align the same node in different level
+func (s *Skiplist) Draw(align bool) {
+	reverseTree := make([][]string, s.getHeight())
+	head := s.getHead()
+	for level := int(s.getHeight()) - 1; level >= 0; level-- {
+		next := head
+		for {
+			var nodeStr string
+			next = s.getNext(next, level)
+			if next != nil {
+				key := next.key(s.arena)
+				vs := next.getVs(s.arena)
+				nodeStr = fmt.Sprintf("%s(%s)", key, vs.Value)
+			} else {
+				break
+			}
+			reverseTree[level] = append(reverseTree[level], nodeStr)
+		}
+	}
+
+	// align
+	if align && s.getHeight() > 1 {
+		baseFloor := reverseTree[0]
+		for level := 1; level < int(s.getHeight()); level++ {
+			pos := 0
+			for _, ele := range baseFloor {
+				if pos == len(reverseTree[level]) {
+					break
+				}
+				if ele != reverseTree[level][pos] {
+					newStr := fmt.Sprintf(strings.Repeat("-", len(ele)))
+					reverseTree[level] = append(reverseTree[level][:pos+1], reverseTree[level][pos:]...)
+					reverseTree[level][pos] = newStr
+				}
+				pos++
+			}
+		}
+	}
+
+	// plot
+	for level := int(s.getHeight()) - 1; level >= 0; level-- {
+		fmt.Printf("%d: ", level)
+		for pos, ele := range reverseTree[level] {
+			if pos == len(reverseTree[level])-1 {
+				fmt.Printf("%s  ", ele)
+			} else {
+				fmt.Printf("%s->", ele)
+			}
+		}
+		fmt.Println()
+	}
+}
 
 // Iterator is an iterator over skiplist object. For new objects, you just
 // need to initialize Iterator.list.
