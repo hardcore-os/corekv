@@ -325,12 +325,6 @@ func (it *tableIterator) Seek(key []byte) {
 		return
 	}
 	it.seekHelper(idx-1, key)
-	if it.err == io.EOF {
-		if idx == len(it.t.ss.Indexs().Offsets) {
-			return
-		}
-		it.seekHelper(idx, key)
-	}
 }
 
 func (it *tableIterator) seekHelper(blockIdx int, key []byte) {
