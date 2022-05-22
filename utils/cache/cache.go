@@ -84,7 +84,7 @@ func (c *Cache) set(key, value interface{}) bool {
 		return true
 	}
 
-	if !c.door.Allow(uint32(keyHash)) {
+	if !c.door.Allow(uint32(eitem.key)) {
 		return true
 	}
 
@@ -117,6 +117,7 @@ func (c *Cache) get(key interface{}) (interface{}, bool) {
 
 	val, ok := c.data[keyHash]
 	if !ok {
+		c.door.Allow(uint32(keyHash))
 		c.c.Increment(keyHash)
 		return nil, false
 	}
@@ -124,10 +125,11 @@ func (c *Cache) get(key interface{}) (interface{}, bool) {
 	item := val.Value.(*storeItem)
 
 	if item.conflict != conflictHash {
+		c.door.Allow(uint32(keyHash))
 		c.c.Increment(keyHash)
 		return nil, false
 	}
-
+	c.door.Allow(uint32(keyHash))
 	c.c.Increment(item.key)
 
 	v := item.value
