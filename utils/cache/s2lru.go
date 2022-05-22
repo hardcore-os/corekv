@@ -1,6 +1,9 @@
 package cache
 
-import "container/list"
+import (
+	"container/list"
+	"fmt"
+)
 
 type segmentedLRU struct {
 	data                     map[uint64]*list.Element
@@ -9,7 +12,7 @@ type segmentedLRU struct {
 }
 
 const (
-	STAGE_ONE = iota
+	STAGE_ONE = iota + 1
 	STAGE_TWO
 )
 
@@ -83,4 +86,16 @@ func (slru *segmentedLRU) victim() *storeItem {
 
 	v := slru.stageOne.Back()
 	return v.Value.(*storeItem)
+}
+
+func (slru *segmentedLRU) String() string {
+	var s string
+	for e := slru.stageTwo.Front(); e != nil; e = e.Next() {
+		s += fmt.Sprintf("%v,", e.Value.(*storeItem).value)
+	}
+	s += fmt.Sprintf(" | ")
+	for e := slru.stageOne.Front(); e != nil; e = e.Next() {
+		s += fmt.Sprintf("%v,", e.Value.(*storeItem).value)
+	}
+	return s
 }

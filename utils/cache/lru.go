@@ -1,6 +1,9 @@
 package cache
 
-import "container/list"
+import (
+	"container/list"
+	"fmt"
+)
 
 type windowLRU struct {
 	data map[uint64]*list.Element
@@ -43,4 +46,12 @@ func (lru *windowLRU) add(newitem storeItem) (eitem storeItem, evicted bool) {
 
 func (lru *windowLRU) get(v *list.Element) {
 	lru.list.MoveToFront(v)
+}
+
+func (lru *windowLRU) String() string {
+	var s string
+	for e := lru.list.Front(); e != nil; e = e.Next() {
+		s += fmt.Sprintf("%v,", e.Value.(*storeItem).value)
+	}
+	return s
 }

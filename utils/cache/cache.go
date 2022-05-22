@@ -2,9 +2,10 @@ package cache
 
 import (
 	"container/list"
-	xxhash "github.com/cespare/xxhash/v2"
 	"sync"
 	"unsafe"
+
+	xxhash "github.com/cespare/xxhash/v2"
 )
 
 type Cache struct {
@@ -211,4 +212,10 @@ func MemHashString(str string) uint64 {
 func MemHash(data []byte) uint64 {
 	ss := (*stringStruct)(unsafe.Pointer(&data))
 	return uint64(memhash(ss.str, 0, uintptr(ss.len)))
+}
+
+func (c *Cache) String() string {
+	var s string
+	s += c.lru.String() + " | " + c.slru.String()
+	return s
 }
