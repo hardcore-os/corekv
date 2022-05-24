@@ -318,6 +318,9 @@ func (it *tableIterator) Seek(key []byte) {
 	var ko pb.BlockOffset
 	idx := sort.Search(len(it.t.ss.Indexs().GetOffsets()), func(idx int) bool {
 		utils.CondPanic(!it.t.offsets(&ko, idx), fmt.Errorf("tableutils.Seek idx < 0 || idx > len(index.GetOffsets()"))
+		if idx == len(it.t.ss.Indexs().GetOffsets()) {
+			return true
+		}
 		return utils.CompareKeys(ko.GetKey(), key) > 0
 	})
 	if idx == 0 {
@@ -346,6 +349,9 @@ func (t *table) offsets(ko *pb.BlockOffset, i int) bool {
 	index := t.ss.Indexs()
 	if i < 0 || i > len(index.GetOffsets()) {
 		return false
+	}
+	if i == len(index.GetOffsets()) {
+		return true
 	}
 	*ko = *index.GetOffsets()[i]
 	return true
