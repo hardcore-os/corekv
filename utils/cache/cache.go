@@ -2,10 +2,9 @@ package cache
 
 import (
 	"container/list"
+	xxhash "github.com/cespare/xxhash/v2"
 	"sync"
 	"unsafe"
-
-	xxhash "github.com/cespare/xxhash/v2"
 )
 
 type Cache struct {
@@ -23,20 +22,25 @@ type Options struct {
 	lruPct uint8
 }
 
+// NewCache size 指的是要缓存的数据个数
 func NewCache(size int) *Cache {
+	//定义 window 部分缓存所占百分比，这里定义为1%
 	const lruPct = 1
+	//计算出来 widow 部分的容量
 	lruSz := (lruPct * size) / 100
 
 	if lruSz < 1 {
 		lruSz = 1
 	}
 
+	// 计算 LFU 部分的缓存容量
 	slruSz := int(float64(size) * ((100 - lruPct) / 100.0))
 
 	if slruSz < 1 {
 		slruSz = 1
 	}
 
+	//LFU 分为两部分，stageOne 部分占比20%
 	slruO := int(0.2 * float64(slruSz))
 
 	if slruO < 1 {
@@ -48,9 +52,9 @@ func NewCache(size int) *Cache {
 	return &Cache{
 		lru:  newWindowLRU(lruSz, data),
 		slru: newSLRU(data, slruO, slruSz-slruO),
-		door: newFilter(size, 0.01),
+		door: newFilter(size, 0.01), //布隆过滤器设置误差率为0.01
 		c:    newCmSketch(int64(size)),
-		data: data,
+		data: data, //共用同一个 map 存储数据
 	}
 
 }
@@ -62,8 +66,10 @@ func (c *Cache) Set(key interface{}, value interface{}) bool {
 }
 
 func (c *Cache) set(key, value interface{}) bool {
+	// keyHash 用来快速定位，conflice 用来判断冲突
 	keyHash, conflictHash := c.keyToHash(key)
 
+	// 刚放进去的缓存都先放到 window lru 中，所以 stage = 0
 	i := storeItem{
 		stage:    0,
 		key:      keyHash,
@@ -71,23 +77,32 @@ func (c *Cache) set(key, value interface{}) bool {
 		value:    value,
 	}
 
+	// 如果 window 已满，要返回被淘汰的数据
 	eitem, evicted := c.lru.add(i)
 
 	if !evicted {
 		return true
 	}
 
+	// 如果 window 中有被淘汰的数据，会走到这里
+	// 需要从 LFU 的 stageOne 部分找到一个淘汰者
+	// 二者进行 PK
 	victim := c.slru.victim()
 
+	// 走到这里是因为 LFU 未满，那么 window lru 的淘汰数据，可以进入 stageOne
 	if victim == nil {
 		c.slru.add(eitem)
 		return true
 	}
 
+	// 这里进行 PK，必须在 bloomfilter 中出现过一次，才允许 PK
+	// 在 bf 中出现，说明访问频率 >= 2
 	if !c.door.Allow(uint32(eitem.key)) {
 		return true
 	}
 
+	// 估算 windowlru 和 LFU 中淘汰数据，历史访问频次
+	// 访问频率高的，被认为更有资格留下来
 	vcount := c.c.Estimate(victim.key)
 	ocount := c.c.Estimate(eitem.key)
 
@@ -95,6 +110,7 @@ func (c *Cache) set(key, value interface{}) bool {
 		return true
 	}
 
+	// 留下来的人进入 stageOne
 	c.slru.add(eitem)
 	return true
 }
