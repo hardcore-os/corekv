@@ -33,11 +33,12 @@ Key differences:
 package utils
 
 import (
-	"github.com/pkg/errors"
 	"log"
 	"math"
 	"sync/atomic"
 	_ "unsafe"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -400,7 +401,6 @@ func (s *Skiplist) Search(key []byte) ValueStruct {
 
 	valOffset, valSize := n.getValueOffset()
 	vs := s.arena.getVal(valOffset, valSize)
-	vs.ExpiresAt = ParseTs(nextKey)
 	return vs
 }
 
