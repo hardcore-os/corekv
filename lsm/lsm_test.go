@@ -54,19 +54,6 @@ func TestBase(t *testing.T) {
 	runTest(1, test)
 }
 
-// TestRecovery  数据库恢复测试
-func TestRecovery(t *testing.T) {
-	clearDir()
-	recovery := func() {
-		// 每次运行都是相当于意外重启
-		lsm := buildLSM()
-		// 测试正确性
-		baseTest(t, lsm, 128)
-	}
-	// 允许两次就能实现恢复
-	runTest(5, recovery)
-}
-
 // TestClose 测试优雅关闭
 func TestClose(t *testing.T) {
 	clearDir()
