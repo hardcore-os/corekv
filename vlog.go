@@ -289,9 +289,6 @@ func (vlog *valueLog) close() error {
 	for id, f := range vlog.filesMap {
 		f.Lock.Lock() // We won’t release the lock.
 		maxFid := vlog.maxFid
-		// TODO(ibrahim) - Do we need the following truncations on non-windows
-		// platforms? We expand the file only on windows and the vlog.woffset()
-		// should point to end of file on all other platforms.
 		if id == maxFid {
 			// truncate writable log file to correct offset.
 			if truncErr := f.Truncate(int64(vlog.woffset())); truncErr != nil && err == nil {
