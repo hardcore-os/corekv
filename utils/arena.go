@@ -17,10 +17,11 @@
 package utils
 
 import (
-	"github.com/pkg/errors"
 	"log"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -76,6 +77,7 @@ func (s *Arena) allocate(sz uint32) uint32 {
 		newBuf := make([]byte, len(s.buf)+int(growBy))
 		AssertTrue(len(s.buf) == copy(newBuf, s.buf))
 		s.buf = newBuf
+		// fmt.Print(len(s.buf), " ")
 	}
 	return offset - sz
 }
@@ -144,9 +146,11 @@ func (s *Arena) getVal(offset uint32, size uint32) (ret ValueStruct) {
 // nil, then the zero offset is returned.
 func (s *Arena) getNodeOffset(nd *node) uint32 {
 	if nd == nil {
-		return 0
+		return 0 //返回空指针
 	}
-
+	//implement me here！！！
+	//获取某个节点,在 arena 当中的偏移量
+	//unsafe.Pointer等价于void*,uintptr可以专门把void*的对于地址转化为数值型变量
 	return uint32(uintptr(unsafe.Pointer(nd)) - uintptr(unsafe.Pointer(&s.buf[0])))
 }
 
