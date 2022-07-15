@@ -141,6 +141,8 @@ func (db *DB) Get(key []byte) (*utils.Entry, error) {
 	if len(key) == 0 {
 		return nil, utils.ErrEmptyKey
 	}
+
+	originKey := key
 	var (
 		entry *utils.Entry
 		err   error
@@ -165,6 +167,7 @@ func (db *DB) Get(key []byte) (*utils.Entry, error) {
 	if isDeletedOrExpired(entry) {
 		return nil, utils.ErrKeyNotFound
 	}
+	entry.Key = originKey
 	return entry, nil
 }
 

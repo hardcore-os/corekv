@@ -132,8 +132,8 @@ func TestValueGC(t *testing.T) {
 		require.NoError(t, err)
 		val := getItemValue(t, item)
 		require.NotNil(t, val)
-		require.True(t, bytes.Equal(item.Key, e.Key), "key not equal: e:%s, v:%s", e.Key, e.Key)
-		require.True(t, bytes.Equal(item.Value, e.Value), "value not equal: e:%s, v:%s", e.Value, e.Value)
+		require.True(t, bytes.Equal(item.Key, e.Key), "key not equal: e:%s, v:%s", e.Key, item.Key)
+		require.True(t, bytes.Equal(item.Value, e.Value), "value not equal: e:%s, v:%s", e.Value, item.Key)
 	}
 }
 
