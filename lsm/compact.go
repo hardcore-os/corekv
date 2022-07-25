@@ -855,7 +855,7 @@ func (lm *levelManager) subcompact(it utils.Iterator, kr keyRange, cd compactDef
 		for ; it.Valid(); it.Next() {
 			key := it.Item().Entry().Key
 			//version := utils.ParseTs(key)
-			isExpired := isDeletedOrExpired(0, it.Item().Entry().ExpiresAt)
+			isExpired := IsDeletedOrExpired(it.Item().Entry())
 			if !utils.SameKey(key, lastKey) {
 				// 如果迭代器返回的key大于当前key的范围就不用执行了
 				if len(kr.right) > 0 && utils.CompareKeys(key, kr.right) >= 0 {
@@ -953,11 +953,15 @@ func (lm *levelManager) checkOverlap(tables []*table, lev int) bool {
 }
 
 // 判断是否过期 是可删除
-func isDeletedOrExpired(meta byte, expiresAt uint64) bool {
-	if expiresAt == 0 {
+func IsDeletedOrExpired(e *utils.Entry) bool {
+	if e.Value == nil {
+		return true
+	}
+	if e.ExpiresAt == 0 {
 		return false
 	}
-	return expiresAt <= uint64(time.Now().Unix())
+
+	return e.ExpiresAt <= uint64(time.Now().Unix())
 }
 
 // compactStatus
