@@ -202,7 +202,6 @@ func (o *oracle) doneCommit(cts uint64) {
 	o.txnMark.Done(cts)
 }
 
-// Txn represents a Badger transaction.
 type Txn struct {
 	readTs   uint64
 	commitTs uint64
@@ -326,7 +325,7 @@ func ValidEntry(db *DB, key, val []byte) error {
 		return utils.ErrEmptyKey
 	case len(key) > maxKeySize:
 		// Key length can't be more than uint16, as determined by table::header.  To
-		// keep things safe and allow badger move prefix and a timestamp suffix, let's
+		// keep things safe and allow move prefix and a timestamp suffix, let's
 		// cut it down to 65000, instead of using 65536.
 		return exceedsSize("Key", maxKeySize, key)
 	case int64(len(val)) > maxValSize:
@@ -345,7 +344,7 @@ func (txn *Txn) modify(e *utils.Entry) error {
 		return utils.ErrEmptyKey
 	case len(e.Key) > maxKeySize:
 		// Key length can't be more than uint16, as determined by table::header.  To
-		// keep things safe and allow badger move prefix and a timestamp suffix, let's
+		// keep things safe and allow move prefix and a timestamp suffix, let's
 		// cut it down to 65000, instead of using 65536.
 		return exceedsSize("Key", maxKeySize, e.Key)
 	}
@@ -562,7 +561,7 @@ func (txn *Txn) commitPrecheck() error {
 //
 // 4. Batch up all writes, write them to value log and LSM tree.
 //
-// 5. If callback is provided, Badger will return immediately after checking
+// 5. If callback is provided, will return immediately after checking
 // for conflicts. Writes to the database will happen in the background.  If
 // there is a conflict, an error will be returned and the callback will not
 // run. If there are no conflicts, the callback will be called in the
@@ -654,26 +653,6 @@ func (txn *Txn) ReadTs() uint64 {
 	return txn.readTs
 }
 
-// NewTransaction creates a new transaction. Badger supports concurrent execution of transactions,
-// providing serializable snapshot isolation, avoiding write skews. Badger achieves this by tracking
-// the keys read and at Commit time, ensuring that these read keys weren't concurrently modified by
-// another transaction.
-//
-// For read-only transactions, set update to false. In this mode, we don't track the rows read for
-// any changes. Thus, any long running iterations done in this mode wouldn't pay this overhead.
-//
-// Running transactions concurrently is OK. However, a transaction itself isn't thread safe, and
-// should only be run serially. It doesn't matter if a transaction is created by one goroutine and
-// passed down to other, as long as the Txn APIs are called serially.
-//
-// When you create a new transaction, it is absolutely essential to call
-// Discard(). This should be done irrespective of what the update param is set
-// to. Commit API internally runs Discard, but running it twice wouldn't cause
-// any issues.
-//
-//  txn := db.NewTransaction(false)
-//  defer txn.Discard()
-//  // Call various APIs.
 func (db *DB) NewTransaction(update bool) *Txn {
 	return db.newTransaction(update)
 }

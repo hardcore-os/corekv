@@ -61,7 +61,6 @@ func (c *Closer) SignalAndWait() {
 }
 
 func (c *Closer) Signal() {
-	// Todo(ibrahim): Change Signal to return error on next badger breaking change.
 	c.cancel()
 }
 

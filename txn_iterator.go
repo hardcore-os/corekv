@@ -27,7 +27,7 @@ type TxnIterator struct {
 type IteratorOptions struct {
 	Reverse        bool // Direction of iteration. False is forward, true is backward.
 	AllVersions    bool // Fetch all valid versions of the same key.
-	InternalAccess bool // Used to allow internal access to badger keys.
+	InternalAccess bool // Used to allow internal access to keys.
 
 	// The following option is used to narrow down the SSTables that iterator
 	// picks up. If Prefix is specified, only tables which could have this

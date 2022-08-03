@@ -81,9 +81,9 @@ var (
 	// ErrEmptyKey is returned if an empty key is passed on an update function.
 	ErrEmptyKey = errors.New("Key cannot be empty")
 
-	// ErrInvalidKey is returned if the key has a special !badger! prefix,
+	// ErrInvalidKey is returned if the key has a special  prefix,
 	// reserved for internal usage.
-	ErrInvalidKey = errors.New("Key is using a reserved !badger! prefix")
+	ErrInvalidKey = errors.New("Key is using a reserved prefix")
 
 	// ErrBannedKey is returned if the read/write key belongs to any banned namespace.
 	ErrBannedKey = errors.New("Key is using the banned prefix")
@@ -127,12 +127,12 @@ var (
 	ErrPlan9NotSupported = errors.New("Read-only mode is not supported on Plan 9")
 
 	// ErrTruncateNeeded is returned when the value log gets corrupt, and requires truncation of
-	// corrupt data to allow Badger to run properly.
+	// corrupt data to allow to run properly.
 	ErrTruncateNeeded = errors.New(
 		"Log truncate required to run DB. This might result in data loss")
 
 	// ErrBlockedWrites is returned if the user called DropAll. During the process of dropping all
-	// data from Badger, we stop accepting new writes, by returning this error.
+	// data
 	ErrBlockedWrites = errors.New("Writes are blocked, possibly due to DropAll or Close")
 
 	// ErrNilCallback is returned when subscriber's callback is nil.
