@@ -52,7 +52,7 @@ func TestSkipListBasicCRUD(t *testing.T) {
 	assert.Nil(t, list.Search([]byte(RandString(10))).Value)
 
 	//Update a entry
-	entry2_new := NewEntry([]byte(RandString(10)), []byte("Val1+1"))
+	entry2_new := NewEntry(entry1.Key, []byte("Val1+1"))
 	list.Add(entry2_new)
 	assert.Equal(t, entry2_new.Value, list.Search(entry2_new.Key).Value)
 }

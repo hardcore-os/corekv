@@ -141,6 +141,8 @@ func (db *DB) Get(key []byte) (*utils.Entry, error) {
 	if len(key) == 0 {
 		return nil, utils.ErrEmptyKey
 	}
+
+	originKey := key
 	var (
 		entry *utils.Entry
 		err   error
@@ -162,22 +164,11 @@ func (db *DB) Get(key []byte) (*utils.Entry, error) {
 		entry.Value = utils.SafeCopy(nil, result)
 	}
 
-	if isDeletedOrExpired(entry) {
+	if lsm.IsDeletedOrExpired(entry) {
 		return nil, utils.ErrKeyNotFound
 	}
+	entry.Key = originKey
 	return entry, nil
-}
-
-// 判断是否过期 是可删除
-func isDeletedOrExpired(e *utils.Entry) bool {
-	if e.Value == nil {
-		return true
-	}
-	if e.ExpiresAt == 0 {
-		return false
-	}
-
-	return e.ExpiresAt <= uint64(time.Now().Unix())
 }
 
 func (db *DB) Info() *Stats {

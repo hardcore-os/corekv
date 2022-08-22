@@ -247,10 +247,14 @@ func (lh *levelHandler) searchLNSST(key []byte) (*utils.Entry, error) {
 	return nil, utils.ErrKeyNotFound
 }
 func (lh *levelHandler) getTable(key []byte) *table {
-	for i := len(lh.tables) - 1; i >= 0; i-- {
-		if bytes.Compare(key, lh.tables[i].ss.MinKey()) > -1 &&
-			bytes.Compare(key, lh.tables[i].ss.MaxKey()) < 1 {
-			return lh.tables[i]
+	if len(lh.tables) > 0 && (bytes.Compare(key, lh.tables[0].ss.MinKey()) < 0 || bytes.Compare(key, lh.tables[len(lh.tables)-1].ss.MaxKey()) > 0) {
+		return nil
+	} else {
+		for i := len(lh.tables) - 1; i >= 0; i-- {
+			if bytes.Compare(key, lh.tables[i].ss.MinKey()) > -1 &&
+				bytes.Compare(key, lh.tables[i].ss.MaxKey()) < 1 {
+				return lh.tables[i]
+			}
 		}
 	}
 	return nil
