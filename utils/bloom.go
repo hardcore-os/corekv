@@ -27,20 +27,13 @@ func (f Filter) MayContainKey(k []byte) bool {
 // MayContain returns whether the filter may contain given key. False positives
 // are possible, where it returns true for keys not in the original set.
 func (f Filter) MayContain(h uint32) bool {
-	if len(f) < 2 {
-		return false
-	}
 	k := f[len(f)-1]
-	if k > 30 {
-		// This is reserved for potentially new encodings for short Bloom filters.
-		// Consider it a match.
-		return true
-	}
-	nBits := uint32(8 * (len(f) - 1))
+	bytes := len(f) - 1
+
 	delta := h>>17 | h<<15
-	for j := uint8(0); j < k; j++ {
-		bitPos := h % nBits
-		if f[bitPos/8]&(1<<(bitPos%8)) == 0 {
+	for i := uint8(0); i < k; i++ {
+		pos := h % uint32(bytes*8)
+		if f[pos/8]&(1<<(pos%8)) == 0 {
 			return false
 		}
 		h += delta
@@ -69,8 +62,9 @@ func appendFilter(keys []uint32, bitsPerKey int) []byte {
 	if bitsPerKey < 0 {
 		bitsPerKey = 0
 	}
-	// 0.69 is approximately ln(2).
-	k := uint32(float64(bitsPerKey) * 0.69)
+
+	k := uint32(0.69 * float64(bitsPerKey))
+
 	if k < 1 {
 		k = 1
 	}
@@ -78,28 +72,25 @@ func appendFilter(keys []uint32, bitsPerKey int) []byte {
 		k = 30
 	}
 
-	nBits := len(keys) * int(bitsPerKey)
-	// For small len(keys), we can see a very high false positive rate. Fix it
-	// by enforcing a minimum bloom filter length.
-	if nBits < 64 {
-		nBits = 64
+	mBits := bitsPerKey * len(keys)
+	if mBits < 64 {
+		mBits = 64
 	}
-	nBytes := (nBits + 7) / 8
-	nBits = nBytes * 8
-	filter := make([]byte, nBytes+1)
 
-	for _, h := range keys {
-		delta := h>>17 | h<<15
+	filterSize := (mBits + 7) / 8
+	filterBits := filterSize * 8
+	filter := make([]byte, filterSize+1)
+
+	for _, key := range keys {
+		delta := key>>17 | key<<15
 		for j := uint32(0); j < k; j++ {
-			bitPos := h % uint32(nBits)
-			filter[bitPos/8] |= 1 << (bitPos % 8)
-			h += delta
+			pos := key % uint32(filterBits)
+			filter[pos/8] |= 1 << (pos % 8)
+			key += delta
 		}
 	}
 
-	//record the K value of this Bloom Filter
-	filter[nBytes] = uint8(k)
-
+	filter[filterSize] = uint8(k)
 	return filter
 }
 
