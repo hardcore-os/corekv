@@ -66,51 +66,41 @@ func (c *Cache) Set(key interface{}, value interface{}) bool {
 }
 
 func (c *Cache) set(key, value interface{}) bool {
-	// keyHash 用来快速定位，conflice 用来判断冲突
-	keyHash, conflictHash := c.keyToHash(key)
+	if key == nil {
+		return false
+	}
+	hashKey, conflict := c.keyToHash(key)
 
-	// 刚放进去的缓存都先放到 window lru 中，所以 stage = 0
-	i := storeItem{
+	item := storeItem{
 		stage:    0,
-		key:      keyHash,
-		conflict: conflictHash,
+		key:      hashKey,
+		conflict: conflict,
 		value:    value,
 	}
 
-	// 如果 window 已满，要返回被淘汰的数据
-	eitem, evicted := c.lru.add(i)
+	eitem, evicted := c.lru.add(item)
 
 	if !evicted {
 		return true
 	}
 
-	// 如果 window 中有被淘汰的数据，会走到这里
-	// 需要从 LFU 的 stageOne 部分找到一个淘汰者
-	// 二者进行 PK
-	victim := c.slru.victim()
-
-	// 走到这里是因为 LFU 未满，那么 window lru 的淘汰数据，可以进入 stageOne
-	if victim == nil {
+	slruVict := c.slru.victim()
+	if slruVict == nil {
 		c.slru.add(eitem)
 		return true
 	}
 
-	// 这里进行 PK，必须在 bloomfilter 中出现过一次，才允许 PK
-	// 在 bf 中出现，说明访问频率 >= 2
-	if !c.door.Allow(uint32(eitem.key)) {
+	if !c.door.Allow(uint32(hashKey)) {
 		return true
 	}
 
-	// 估算 windowlru 和 LFU 中淘汰数据，历史访问频次
-	// 访问频率高的，被认为更有资格留下来
-	vcount := c.c.Estimate(victim.key)
-	ocount := c.c.Estimate(eitem.key)
+	count0 := c.c.Estimate(eitem.key)
+	count1 := c.c.Estimate(slruVict.key)
 
-	if ocount < vcount {
+	if count0 < count1 {
 		return true
 	}
 
-	// 留下来的人进入 stageOne
 	c.slru.add(eitem)
 	return true
 }
@@ -129,35 +119,37 @@ func (c *Cache) get(key interface{}) (interface{}, bool) {
 		c.t = 0
 	}
 
-	keyHash, conflictHash := c.keyToHash(key)
+	if key == nil {
+		return nil, false
+	}
 
-	val, ok := c.data[keyHash]
+	keyHash, conflict := c.keyToHash(key)
+	ref, ok := c.data[keyHash]
+
 	if !ok {
 		c.door.Allow(uint32(keyHash))
 		c.c.Increment(keyHash)
 		return nil, false
 	}
 
-	item := val.Value.(*storeItem)
+	item := ref.Value.(*storeItem)
 
-	if item.conflict != conflictHash {
+	if item.conflict != conflict {
 		c.door.Allow(uint32(keyHash))
 		c.c.Increment(keyHash)
 		return nil, false
 	}
-	c.door.Allow(uint32(keyHash))
-	c.c.Increment(item.key)
 
-	v := item.value
+	c.door.Allow(uint32(keyHash))
+	c.c.Increment(keyHash)
 
 	if item.stage == 0 {
-		c.lru.get(val)
+		c.lru.get(ref)
 	} else {
-		c.slru.get(val)
+		c.slru.get(ref)
 	}
 
-	return v, true
-
+	return item.value, true
 }
 
 func (c *Cache) Del(key interface{}) (interface{}, bool) {
