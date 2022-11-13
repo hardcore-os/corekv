@@ -24,15 +24,11 @@ func newCmSketch(numCounters int64) *cmSketch {
 	// numCounters 一定是二次幂，也就一定是1后面有 n 个 0
 	numCounters = next2Power(numCounters)
 	// mask 一定是0111...111
-	sketch := &cmSketch{mask: uint64(numCounters - 1)}
-	source := rand.New(rand.NewSource(time.Now().UnixNano()))
+	sketch := &cmSketch{
+		mask: uint64(numCounters - 1),
+	}
 
-	// 初始化4行
-	// 0000,0000|0000,0000|0000,0000
-	// 0000,0000|0000,0000|0000,0000
-	// 0000,0000|0000,0000|0000,0000
-	// 0000,0000|0000,0000|0000,0000
-
+	source := rand.New(rand.NewSource(time.Now().Unix()))
 	for i := 0; i < cmDepth; i++ {
 		sketch.seed[i] = source.Uint64()
 		sketch.rows[i] = newCmRow(numCounters)
@@ -42,21 +38,19 @@ func newCmSketch(numCounters int64) *cmSketch {
 }
 
 func (s *cmSketch) Increment(hashed uint64) {
-	// 对于每一行进行相同操作
-	for i := range s.rows {
+	for i := 0; i < cmDepth; i++ {
 		s.rows[i].increment((hashed ^ s.seed[i]) & s.mask)
 	}
 }
 
 func (s *cmSketch) Estimate(hashed uint64) int64 {
 	min := byte(255)
-	for i := range s.rows {
+	for i := 0; i < cmDepth; i++ {
 		val := s.rows[i].get((hashed ^ s.seed[i]) & s.mask)
 		if val < min {
 			min = val
 		}
 	}
-
 	return int64(min)
 }
 
@@ -90,30 +84,31 @@ func next2Power(x int64) int64 {
 type cmRow []byte
 
 func newCmRow(numCounters int64) cmRow {
-	return make(cmRow, numCounters/2)
+	return make([]byte, numCounters/2)
 }
 
 func (r cmRow) get(n uint64) byte {
-	return r[n/2] >> ((n & 1) * 4) & 0x0f
+	return byte(r[n>>1]>>((n&1)*4)) & 0x0f
 }
 
 func (r cmRow) increment(n uint64) {
 	i := n / 2
-	s := (n & 1) * 4
-	v := (r[i] >> s) & 0x0f
+	v := byte(r[i]>>((n&1)*4)) & 0x0f
+	k := (n & 1) * 4
+
 	if v < 15 {
-		r[i] += 1 << s
+		r[i] = r[i] + (1 << k)
 	}
 }
 
 func (r cmRow) reset() {
-	for i := range r {
+	for i := 0; i < len(r); i++ {
 		r[i] = (r[i] >> 1) & 0x77
 	}
 }
 
 func (r cmRow) clear() {
-	for i := range r {
+	for i := 0; i < len(r); i++ {
 		r[i] = 0
 	}
 }

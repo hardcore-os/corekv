@@ -27,62 +27,52 @@ func newSLRU(data map[uint64]*list.Element, stageOneCap, stageTwoCap int) *segme
 }
 
 func (slru *segmentedLRU) add(newitem storeItem) {
-	// 先进来的都放 stageOne
-	newitem.stage = 1
+	newitem.stage = STAGE_ONE
 
-	// 如果 stageOne 没满，整个 LFU 区域也没满
-	if slru.stageOne.Len() < slru.stageOneCap || slru.Len() < slru.stageOneCap+slru.stageTwoCap {
+	if slru.stageOne.Len() < slru.stageOneCap || slru.stageOne.Len()+slru.stageTwo.Len() < slru.Len() {
 		slru.data[newitem.key] = slru.stageOne.PushFront(&newitem)
 		return
 	}
 
-	//走到这里说明 StageOne 满了，或者整个 LFU都满了
-	//那么需要从 StageOne 淘汰数据了
-	e := slru.stageOne.Back()
-	item := e.Value.(*storeItem)
+	backEle := slru.stageOne.Back()
+	backItem := backEle.Value.(*storeItem)
 
-	//这里淘汰就是真的淘汰了
-	delete(slru.data, item.key)
+	delete(slru.data, backItem.key)
 
-	*item = newitem
+	*backItem = newitem
 
-	slru.data[item.key] = e
-	slru.stageOne.MoveToFront(e)
+	slru.data[newitem.key] = backEle
+	slru.stageOne.MoveToFront(backEle)
 }
 
 func (slru *segmentedLRU) get(v *list.Element) {
 	item := v.Value.(*storeItem)
 
-	// 若访问的缓存数据，已经在 StageTwo，只需要按照 LRU 规则提前即可
 	if item.stage == STAGE_TWO {
 		slru.stageTwo.MoveToFront(v)
 		return
 	}
 
-	// 若访问的数据还在 StageOne，那么再次被访问到，就需要提升到 StageTwo 阶段了
 	if slru.stageTwo.Len() < slru.stageTwoCap {
+		slru.data[item.key] = slru.stageTwo.PushFront(item)
 		slru.stageOne.Remove(v)
 		item.stage = STAGE_TWO
-		slru.data[item.key] = slru.stageTwo.PushFront(item)
 		return
 	}
 
-	// 新数据加入 StageTwo，需要淘汰旧数据
-	// StageTwo 中淘汰的数据不会消失，会进入 StageOne
-	// StageOne 中，访问频率更低的数据，有可能会被淘汰
-	back := slru.stageTwo.Back()
-	bitem := back.Value.(*storeItem)
+	twoBack := slru.stageTwo.Back()
+	twoBackItem := twoBack.Value.(*storeItem)
 
-	*bitem, *item = *item, *bitem
+	*twoBackItem, *item = *item, *twoBackItem
 
-	bitem.stage = STAGE_TWO
-	item.stage = STAGE_ONE
+	slru.data[twoBackItem.key] = v
+	slru.data[item.key] = twoBack
 
-	slru.data[item.key] = v
-	slru.data[bitem.key] = back
+	twoBackItem.stage = STAGE_ONE
+	item.stage = STAGE_TWO
 
+	slru.stageTwo.MoveToFront(twoBack)
 	slru.stageOne.MoveToFront(v)
-	slru.stageTwo.MoveToFront(back)
 }
 
 func (slru *segmentedLRU) Len() int {
