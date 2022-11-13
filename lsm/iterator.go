@@ -88,6 +88,7 @@ func (iter *memIterator) Close() error {
 	return iter.innerIter.Close()
 }
 func (iter *memIterator) Seek(key []byte) {
+	fmt.Println("do something here")
 }
 
 // levelManager上的迭代器
