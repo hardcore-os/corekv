@@ -112,28 +112,34 @@ func clearDir() {
 func TestValueGC(t *testing.T) {
 	clearDir()
 	opt.ValueLogFileSize = 1 << 20
+	opt.MaxBatchCount = 30
+	opt.MaxBatchSize = 1 << 20
+
 	kv := Open(opt)
 	defer kv.Close()
 	sz := 32 << 10
 	kvList := []*utils.Entry{}
+	txn := kv.NewTransaction(true)
 	for i := 0; i < 100; i++ {
 		e := newRandEntry(sz)
-		kvList = append(kvList, &utils.Entry{
-			Key:       e.Key,
-			Value:     e.Value,
-			Meta:      e.Meta,
-			ExpiresAt: e.ExpiresAt,
-		})
-		require.NoError(t, kv.Set(e))
+		require.NoError(t, txn.SetEntry(e))
+
+		if i%20 == 0 {
+			require.NoError(t, txn.Commit())
+			txn = kv.NewTransaction(true)
+		}
 	}
+	require.NoError(t, txn.Commit())
+
 	kv.RunValueLogGC(0.9)
+
 	for _, e := range kvList {
-		item, err := kv.Get(e.Key)
+		item, err := txn.Get(e.Key)
 		require.NoError(t, err)
-		val := getItemValue(t, item)
+		val := getItemValue(t, item.e)
 		require.NotNil(t, val)
-		require.True(t, bytes.Equal(item.Key, e.Key), "key not equal: e:%s, v:%s", e.Key, item.Key)
-		require.True(t, bytes.Equal(item.Value, e.Value), "value not equal: e:%s, v:%s", e.Value, item.Key)
+		require.True(t, bytes.Equal(item.e.Key, e.Key), "key not equal: e:%s, v:%s", e.Key, item.e.Key)
+		require.True(t, bytes.Equal(item.e.Value, e.Value), "value not equal: e:%s, v:%s", e.Value, item.e.Key)
 	}
 }
 

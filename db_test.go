@@ -16,6 +16,7 @@ package corekv
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
@@ -30,14 +31,17 @@ func TestAPI(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		key, val := fmt.Sprintf("key%d", i), fmt.Sprintf("val%d", i)
 		e := utils.NewEntry([]byte(key), []byte(val)).WithTTL(1000 * time.Second)
-		if err := db.Set(e); err != nil {
+		txn := db.NewTransaction(true)
+		if err := txn.SetEntry(e); err != nil {
 			t.Fatal(err)
 		}
+		require.NoError(t, txn.Commit())
+		txn = db.NewTransaction(true)
 		// 查询
-		if entry, err := db.Get([]byte(key)); err != nil {
+		if entry, err := txn.Get([]byte(key)); err != nil {
 			t.Fatal(err)
 		} else {
-			t.Logf("db.Get key=%s, value=%s, expiresAt=%d", entry.Key, entry.Value, entry.ExpiresAt)
+			t.Logf("db.Get key=%s, value=%s, expiresAt=%d", entry.e.Key, entry.e.Value, entry.e.ExpiresAt)
 		}
 	}
 
@@ -68,14 +72,15 @@ func TestAPI(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		key, val := fmt.Sprintf("key%d", i), fmt.Sprintf("val%d", i)
 		e := utils.NewEntry([]byte(key), []byte(val)).WithTTL(1000 * time.Second)
-		if err := db.Set(e); err != nil {
-			t.Fatal(err)
-		}
+		txn := db.NewTransaction(true)
+		require.NoError(t, txn.SetEntry(e))
+		require.NoError(t, txn.Commit())
 		// 查询
-		if entry, err := db.Get([]byte(key)); err != nil {
+		txn = db.NewTransaction(false)
+		if entry, err := txn.Get([]byte(key)); err != nil {
 			t.Fatal(err)
 		} else {
-			t.Logf("db.Get key=%s, value=%s, expiresAt=%d", entry.Key, entry.Value, entry.ExpiresAt)
+			t.Logf("db.Get key=%s, value=%s, expiresAt=%d", entry.e.Key, entry.e.Value, entry.e.ExpiresAt)
 		}
 	}
 

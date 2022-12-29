@@ -129,6 +129,7 @@ func (db *DB) Set(data *utils.Entry) error {
 	}
 	return db.lsm.Set(data)
 }
+
 func (db *DB) Get(key []byte) (*utils.Entry, error) {
 	if len(key) == 0 {
 		return nil, utils.ErrEmptyKey
