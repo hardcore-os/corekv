@@ -135,8 +135,7 @@ func (s *Arena) getKey(offset uint32, size uint16) []byte {
 	return s.buf[offset : offset+uint32(size)]
 }
 
-// getVal returns byte slice at offset. The given size should be just the value
-// size and should NOT include the meta bytes.
+// getVal returns byte slice at offset.
 func (s *Arena) getVal(offset uint32, size uint32) (ret ValueStruct) {
 	ret.DecodeValue(s.buf[offset : offset+size])
 	return
