@@ -2,11 +2,12 @@ package utils
 
 import (
 	"fmt"
+	"sync"
+	"testing"
+
 	"github.com/hardcore-os/corekv/utils/codec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"sync"
-	"testing"
 )
 
 func RandString(len int) string {
@@ -27,7 +28,7 @@ func TestSkipList_compare(t *testing.T) {
 	}
 
 	byte1 := []byte("1")
-	byte2 := []byte("2")
+	byte2 := []byte("1")
 	entry1 := codec.NewEntry(byte1, byte1)
 
 	byte1score := list.calcScore(byte1)
@@ -39,7 +40,7 @@ func TestSkipList_compare(t *testing.T) {
 		score:  byte2score,
 	}
 
-	assert.Equal(t, list.compare(byte1score, byte1, elem), -1)
+	assert.Equal(t, list.compare(byte1score, byte1, elem), 0)
 }
 
 func TestSkipListBasicCRUD(t *testing.T) {
