@@ -57,22 +57,38 @@ func (list *SkipList) Add(data *codec.Entry) error {
 	prevs := make([]*Element, list.maxLevel+1)
 
 	key := data.Key
-	keyScore := list.calcScore(key)
+	// keyScore := list.calcScore(key)
 	header, maxLevel := list.header, list.maxLevel
 	prev := header
+	// for i := maxLevel; i >= 0; i-- {
+	// 	for ne := prev.levels[i]; ne != nil; ne = prev.levels[i] {
+	// 		if comp := list.compare(keyScore, key, ne); comp <= 0 {
+	// 			if comp == 0 {
+	// 				// 更新数据
+	// 				ne.entry = data
+	// 				return nil
+	// 			} else {
+	// 				prev = ne
+	// 			}
+	// 		} else {
+	// 			break
+	// 		}
+	// 	}
+	// 	prevs[i] = prev
+	// }
+
 	for i := maxLevel; i >= 0; i-- {
-		for ne := prev.levels[i]; ne != nil; ne = prev.levels[i] {
-			if comp := list.compare(keyScore, key, ne); comp <= 0 {
-				if comp == 0 {
-					// 更新数据
-					ne.entry = data
+		for nxt := prev.levels[i]; nxt != nil; nxt = prev.levels[i] {
+			if bytes.Compare(key, nxt.entry.Key) <= 0 {
+				if bytes.Compare(key, nxt.entry.Key) == 0 {
+					// fmt.Println(nxt.entry.Key)
+					// fmt.Println(key)
+					nxt.entry = data
 					return nil
-				} else {
-					prev = ne
 				}
-			} else {
 				break
 			}
+			prev = nxt
 		}
 		prevs[i] = prev
 	}
@@ -80,7 +96,9 @@ func (list *SkipList) Add(data *codec.Entry) error {
 	randLevel, keyScore := list.randLevel(), list.calcScore(key)
 	e := newElement(keyScore, data, randLevel)
 
-	for i := randLevel; i >= 0; i-- {
+	for i := randLevel - 1; i >= 0; i-- {
+		// fmt.Println(i, "dada")
+		// fmt.Println(len(e.levels))
 		ne := prevs[i].levels[i]
 		prevs[i].levels[i] = e
 		e.levels[i] = ne
@@ -90,20 +108,34 @@ func (list *SkipList) Add(data *codec.Entry) error {
 
 func (list *SkipList) Search(key []byte) (e *codec.Entry) {
 	//implement me here!!!
-	keyScore := list.calcScore(key)
+	// keyScore := list.calcScore(key)
 	header, maxLevel := list.header, list.maxLevel
 	prev := header
+	// for i := maxLevel; i >= 0; i-- {
+	// 	for ne := prev.levels[i]; ne != nil; ne = prev.levels[i] {
+	// 		if comp := list.compare(keyScore, key, ne); comp <= 0 {
+	// 			if comp == 0 {
+	// 				return ne.entry
+	// 			} else {
+	// 				prev = ne
+	// 			}
+	// 		} else {
+	// 			break
+	// 		}
+	// 	}
+	// }
+
 	for i := maxLevel; i >= 0; i-- {
-		for ne := prev.levels[i]; ne != nil; ne = prev.levels[i] {
-			if comp := list.compare(keyScore, key, ne); comp <= 0 {
-				if comp == 0 {
-					return ne.entry
-				} else {
-					prev = ne
+		for nxt := prev.levels[i]; nxt != nil; nxt = prev.levels[i] {
+			if bytes.Compare(key, nxt.entry.Key) <= 0 {
+				if bytes.Compare(key, nxt.entry.Key) == 0 {
+					// fmt.Println(nxt.entry.Key)
+					// fmt.Println(key)
+					return nxt.entry
 				}
-			} else {
 				break
 			}
+			prev = nxt
 		}
 	}
 	return nil

@@ -2,11 +2,12 @@ package utils
 
 import (
 	"fmt"
+	"sync"
+	"testing"
+
 	"github.com/hardcore-os/corekv/utils/codec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"sync"
-	"testing"
 )
 
 func RandString(len int) string {
