@@ -20,6 +20,8 @@ func (sl *Skiplist) Add(entry *codec.Entry) error {
 	sl.head.next = &node{
 		member: entry,
 	}
+
+	
 	return nil
 }
 
