@@ -122,7 +122,7 @@ loop:
 			continue
 		}
 		if nFalsePositive > 0.0125*10000 {
-			nMediocreFilters++
+			nMediocreFilters++ 
 		} else {
 			nGoodFilters++
 		}
