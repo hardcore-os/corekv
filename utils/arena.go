@@ -31,16 +31,17 @@ const (
 	// so that the node.value field is 64-bit aligned. This is necessary because
 	// node.getValueOffset uses atomic.LoadUint64, which expects its input
 	// pointer to be 64-bit aligned.
+	// 始终在64位边界上对结点进行对齐
 	nodeAlign = int(unsafe.Sizeof(uint64(0))) - 1
 
 	MaxNodeSize = int(unsafe.Sizeof(node{}))
 )
 
-// Arena should be lock-free.
+// Arena should be lock-free（无锁）.
 type Arena struct {
-	n          uint32
-	shouldGrow bool
-	buf        []byte
+	n          uint32 // 表示当前Arena中已经使用的结点数量。
+	shouldGrow bool   // 指示Arena是否应该在空间不足的情况下自动增长。
+	buf        []byte // Arena的主要内存存储区，用于存储实际的字节数据。
 }
 
 // newArena returns a new arena.
@@ -55,7 +56,7 @@ func newArena(n int64) *Arena {
 }
 
 func (s *Arena) allocate(sz uint32) uint32 {
-	offset := atomic.AddUint32(&s.n, sz)
+	offset := atomic.AddUint32(&s.n, sz) // 原子性地对 Arena.n 加上 sz
 	if !s.shouldGrow {
 		AssertTrue(int(offset) <= len(s.buf))
 		return offset - sz
@@ -66,20 +67,22 @@ func (s *Arena) allocate(sz uint32) uint32 {
 	// maxHeight. This reduces the node's size, but checkptr doesn't know about its reduced size.
 	// checkptr tries to verify that the node of size MaxNodeSize resides on a single heap
 	// allocation which causes this error: checkptr:converted pointer straddles multiple allocations
-	if int(offset) > len(s.buf)-MaxNodeSize {
-		growBy := uint32(len(s.buf))
-		if growBy > 1<<30 {
+	if int(offset) > len(s.buf)-MaxNodeSize { // 表示当前的缓冲区已经不足以容纳一个完整的节点。
+		growBy := uint32(len(s.buf)) // growBy表示要扩容的大小
+		if growBy > 1<<30 {          //设定最大值，防止在扩容时分配过大的内存
 			growBy = 1 << 30
 		}
 		if growBy < sz {
 			growBy = sz
 		}
 		newBuf := make([]byte, len(s.buf)+int(growBy))
+		// AssertTrue函数确保将原来的s.buf数据复制到新的newBuf时，复制的字节数与原切片s.buf的长度相同。
+		// copy函数返回实际复制的字节数。
 		AssertTrue(len(s.buf) == copy(newBuf, s.buf))
 		s.buf = newBuf
 		// fmt.Print(len(s.buf), " ")
 	}
-	return offset - sz
+	return offset - sz // 返回的是当前新分配节点的起始偏移量
 }
 
 func (s *Arena) size() int64 {
@@ -88,17 +91,18 @@ func (s *Arena) size() int64 {
 
 // putNode allocates a node in the arena. The node is aligned on a pointer-sized
 // boundary. The arena offset of the node is returned.
+// 为一个结点分配内存，并确保该结点的内存地址是对齐的
 func (s *Arena) putNode(height int) uint32 {
 	// Compute the amount of the tower that will never be used, since the height
 	// is less than maxHeight.
-	unusedSize := (maxHeight - height) * offsetSize
+	unusedSize := (maxHeight - height) * offsetSize // offsetSize是一层tower的大小
 
 	// Pad the allocation with enough bytes to ensure pointer alignment.
-	l := uint32(MaxNodeSize - unusedSize + nodeAlign)
+	l := uint32(MaxNodeSize - unusedSize + nodeAlign) // 计算对齐后的分配大小。+ nodeAlign是为了增加内存对齐的功能后不会出错
 	n := s.allocate(l)
 
 	// Return the aligned offset.
-	m := (n + uint32(nodeAlign)) & ^uint32(nodeAlign)
+	m := (n + uint32(nodeAlign)) & ^uint32(nodeAlign) // 对齐粒度为MEM_ALIGNMENT字节时，((size) + MEM_ALIGNMENT - 1) & ~(MEM_ALIGNMENT-1)) 为向上取整
 	return m
 }
 
@@ -109,7 +113,7 @@ func (s *Arena) putNode(height int) uint32 {
 func (s *Arena) putVal(v ValueStruct) uint32 {
 	l := uint32(v.EncodedSize())
 	offset := s.allocate(l)
-	v.EncodeValue(s.buf[offset:])
+	v.EncodeValue(s.buf[offset : offset+l])
 	return offset
 }
 

@@ -68,16 +68,16 @@ type node struct {
 	// Therefore, when a node is allocated in the arena, its memory footprint
 	// is deliberately truncated to not include unneeded tower elements.
 	//
-	// All accesses to elements should use CAS operations, with no need to lock.
+	// All accesses to elements should use CAS（比较并交换） operations, with no need to lock.
 	tower [maxHeight]uint32
 }
 
 type Skiplist struct {
 	height     int32 // Current height. 1 <= height <= kMaxHeight. CAS.
 	headOffset uint32
-	ref        int32
+	ref        int32 // 引用计数，用于跟踪对 Skiplist 实例的引用数量。当ref减为0时，Skiplist 会执行清理操作，实现自动释放资源。
 	arena      *Arena
-	OnClose    func()
+	OnClose    func() // 用于执行特定的清理操作，例如释放分配的内存，关闭任何相关的资源等。如果 OnClose 被设置为一个有效的函数（不为 nil），那么在释放 Skiplist 时就会调用这个函数。
 }
 
 // IncrRef increases the refcount
@@ -129,7 +129,7 @@ func NewSkiplist(arenaSize int64) *Skiplist {
 	arena := newArena(arenaSize)
 	head := newNode(arena, nil, ValueStruct{}, maxHeight)
 	ho := arena.getNodeOffset(head)
-	return &Skiplist{
+	return &Skiplist{ // &是取地址符，return的是SkipList实例在内存中的地址，也相当于返回一个指向SkipList的指针
 		height:     1,
 		headOffset: ho,
 		arena:      arena,
@@ -142,7 +142,7 @@ func (n *node) getValueOffset() (uint32, uint32) {
 	return decodeValue(value)
 }
 
-func (n *node) key(arena *Arena) []byte {
+func (n *node) key(arena *Arena) []byte { // 返回字节切片，相当于char[]数组
 	return arena.getKey(n.keyOffset, n.keySize)
 }
 
@@ -156,6 +156,9 @@ func (n *node) getNextOffset(h int) uint32 {
 
 func (n *node) casNextOffset(h int, old, val uint32) bool {
 	return atomic.CompareAndSwapUint32(&n.tower[h], old, val)
+	// 这个函数用于实现一个原子比较和交换操作。它会检查tower[h]的当前值是否为old，如果是，则将其替换为val，并返回true；
+	// 如果不是，则不执行任何操作，返回false。
+	// 这个操作是非常用在数据结构中的，以确保在多个并发修改的情况下，只有一个操作能够成功。
 }
 
 // getVs return ValueStruct stored in node
@@ -173,7 +176,7 @@ func (n *node) getVs(arena *Arena) ValueStruct {
 
 func (s *Skiplist) randomHeight() int {
 	h := 1
-	for h < maxHeight && FastRand() <= heightIncrease {
+	for h < maxHeight && FastRand() <= heightIncrease { // FastRand()函数用于生成一个伪随机数
 		h++
 	}
 	return h
@@ -310,7 +313,7 @@ func (s *Skiplist) Add(e *Entry) {
 	for i := int(listHeight) - 1; i >= 0; i-- {
 		// Use higher level to speed up for current level.
 		prev[i], next[i] = s.findSpliceForLevel(key, prev[i+1], i)
-		if prev[i] == next[i] {
+		if prev[i] == next[i] { // 表示在Skiplist中能找到key：仅更新value
 			vo := s.arena.putVal(v)
 			encValue := encodeValue(vo, v.EncodedSize())
 			prevNode := s.arena.getNode(prev[i])
@@ -341,6 +344,7 @@ func (s *Skiplist) Add(e *Entry) {
 				AssertTrue(i > 1) // This cannot happen in base level.
 				// We haven't computed prev, next for this level because height exceeds old listHeight.
 				// For these levels, we expect the lists to be sparse, so we can just search from head.
+				// height超过了老的listHeight时，从头部开始搜索，计算prev、next.
 				prev[i], next[i] = s.findSpliceForLevel(key, s.headOffset, i)
 				// Someone adds the exact same key before we are able to do so. This can only happen on
 				// the base level. But we know we are not on the base level.
@@ -564,6 +568,7 @@ type UniIterator struct {
 }
 
 // FastRand is a fast thread local random function.
+//
 //go:linkname FastRand runtime.fastrand
 func FastRand() uint32
 

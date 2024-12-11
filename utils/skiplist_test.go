@@ -34,6 +34,7 @@ func RandString(len int) string {
 	return string(bytes)
 }
 
+// CRUD: Create, Read, Update, Delete
 func TestSkipListBasicCRUD(t *testing.T) {
 	list := NewSkiplist(1000)
 
@@ -74,8 +75,8 @@ func Benchmark_SkipListBasicCRUD(b *testing.B) {
 func TestDrawList(t *testing.T) {
 	list := NewSkiplist(1000)
 	n := 12
-	for i:=0; i<n; i++ {
-		index := strconv.Itoa(r.Intn(90)+10)
+	for i := 0; i < n; i++ {
+		index := strconv.Itoa(r.Intn(90) + 10)
 		key := index + RandString(8)
 		entryRand := NewEntry([]byte(key), []byte(index))
 		list.Add(entryRand)
