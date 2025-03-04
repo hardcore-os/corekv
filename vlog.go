@@ -360,7 +360,7 @@ func (vlog *valueLog) doRunGC(lf *file.LogFile, discardRatio float64) (err error
 	return nil
 }
 
-//重写
+// 重写
 func (vlog *valueLog) rewrite(f *file.LogFile) error {
 	vlog.filesLock.RLock()
 	maxFid := vlog.maxFid
@@ -1159,7 +1159,7 @@ func (vlog *valueLog) pickLog(head *utils.ValuePtr) (files []*file.LogFile) {
 	return files
 }
 
-//sampler 采样器
+// sampler 采样器
 type sampler struct {
 	lf            *file.LogFile
 	sizeRatio     float64
@@ -1182,8 +1182,10 @@ func (vlog *valueLog) sample(samp *sampler, discardRatio float64) (*reason, erro
 	if !samp.fromBeginning {
 		// Pick a random start point for the log.
 		skipFirstM = float64(rand.Int63n(fileSize)) // Pick a random starting location.
-		skipFirstM -= sizeWindow                    // Avoid hitting EOF by moving back by window.
-		skipFirstM /= float64(utils.Mi)             // Convert to MBs.
+		if skipFirstM > sizeWindow {
+			skipFirstM -= sizeWindow // Avoid hitting EOF by moving back by window.
+		}
+		skipFirstM /= float64(utils.Mi) // Convert to MBs.
 	}
 	var skipped float64
 
